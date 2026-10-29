@@ -6,6 +6,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-29
+
 ### Added
 - Debug menu: Menu Bar Items window (live list of every status item with its owning app,
   position, on-screen and notch state) and Copy Diagnostics.
