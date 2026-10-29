@@ -1,4 +1,5 @@
 import AppKit
+import os
 import StackbarCore
 
 @MainActor
@@ -13,5 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusIcon.installDebugMenu(debug)
         self.statusIcon = statusIcon
         self.debug = debug
+        Logger(subsystem: "io.github.sebas1337.stackbar", category: "app")
+            .notice("launched \(buildInfo.displayString, privacy: .public), AX trusted=\(AXIsProcessTrusted(), privacy: .public)")
     }
 }

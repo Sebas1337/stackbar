@@ -29,7 +29,7 @@ final class DividerController {
     var length: Double { statusItem.length }
 
     var windowID: UInt32? {
-        statusItem.button?.window.map { UInt32($0.windowNumber) }
+        StatusItemWindow.windowID(of: statusItem)
     }
 
     func setCollapsed(_ collapsed: Bool) {

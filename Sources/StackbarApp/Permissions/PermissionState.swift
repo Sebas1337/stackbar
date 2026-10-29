@@ -1,6 +1,10 @@
+import AppKit
 import ApplicationServices
 import CoreGraphics
+import os
 import StackbarCore
+
+private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category: "permissions")
 
 /// Accessibility and Screen Recording, the two permissions Stackbar needs.
 @MainActor
@@ -12,14 +16,35 @@ enum PermissionState {
         )
     }
 
-    /// Shows the system prompt that leads to System Settings → Accessibility.
+    /// Shows the system prompt and opens System Settings → Accessibility. macOS shows the prompt
+    /// only once per app, so the settings pane is what the user sees on every later request.
     static func requestAccessibility() {
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        let trusted = AXIsProcessTrustedWithOptions(options)
+        logger.notice("requestAccessibility: trusted=\(trusted, privacy: .public)")
+        guard !trusted else { return showAlreadyGranted("Accessibility") }
+        openSettings("Privacy_Accessibility")
     }
 
-    /// Shows the system prompt for Screen Recording (once; afterwards only System Settings).
+    /// Shows the system prompt (once per app) and opens System Settings → Screen Recording.
     static func requestScreenRecording() {
-        _ = CGRequestScreenCaptureAccess()
+        let granted = CGRequestScreenCaptureAccess()
+        logger.notice("requestScreenRecording: granted=\(granted, privacy: .public)")
+        guard !granted else { return showAlreadyGranted("Screen Recording") }
+        openSettings("Privacy_ScreenCapture")
+    }
+
+    private static func showAlreadyGranted(_ name: String) {
+        let alert = NSAlert()
+        alert.messageText = "\(name) is already granted"
+        alert.informativeText = "Stackbar has \(name) permission. Nothing to do."
+        NSApp.activate()
+        alert.runModal()
+    }
+
+    private static func openSettings(_ anchor: String) {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)") else { return }
+        let opened = NSWorkspace.shared.open(url)
+        logger.notice("open settings \(anchor, privacy: .public): \(opened, privacy: .public)")
     }
 }

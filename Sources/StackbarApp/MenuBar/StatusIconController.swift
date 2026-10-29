@@ -9,7 +9,7 @@ final class StatusIconController {
 
     /// The icon's window in the window list, for diagnostics.
     var windowID: UInt32? {
-        statusItem.button?.window.map { UInt32($0.windowNumber) }
+        StatusItemWindow.windowID(of: statusItem)
     }
 
     init(buildInfo: BuildInfo) {
