@@ -8,12 +8,18 @@ enum WindowListReader {
     /// All windows above the normal window layer: status items (layer 25), the menu bar,
     /// open menus and popovers. Normal app windows (layer 0) and the desktop are left out.
     static func windows() -> [WindowInfo] {
+        windows(minimumLayer: 1)
+    }
+
+    /// Every window at `minimumLayer` or above (0 includes normal app windows, e.g. popovers
+    /// some apps show at the normal level).
+    static func windows(minimumLayer: Int) -> [WindowInfo] {
         guard let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
         var bundleIDs: [pid_t: String?] = [:]
         return list.compactMap { entry -> WindowInfo? in
-            guard let layer = entry[kCGWindowLayer as String] as? Int, layer > 0,
+            guard let layer = entry[kCGWindowLayer as String] as? Int, layer >= minimumLayer,
                   let number = entry[kCGWindowNumber as String] as? UInt32,
                   let pid = entry[kCGWindowOwnerPID as String] as? pid_t,
                   let boundsDict = entry[kCGWindowBounds as String] as? NSDictionary,

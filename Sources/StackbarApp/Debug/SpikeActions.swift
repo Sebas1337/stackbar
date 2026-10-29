@@ -59,10 +59,10 @@ enum SpikeActions {
 
     /// Performs AXPress on the item and reports which new windows appeared within a second.
     static func press(_ item: AXMenuBarItem) async -> String {
-        let before = Set(WindowListReader.windows().map(\.windowID))
+        let before = Set(WindowListReader.windows(minimumLayer: 0).map(\.windowID))
         let error = AXUIElementPerformAction(item.element, kAXPressAction as CFString)
         try? await Task.sleep(for: .seconds(1))
-        let appeared = WindowListReader.windows().filter { !before.contains($0.windowID) }
+        let appeared = WindowListReader.windows(minimumLayer: 0).filter { !before.contains($0.windowID) && $0.isOnScreen }
         let summary = appeared.map {
             "#\($0.windowID) layer \($0.layer) owner \($0.ownerBundleID ?? $0.ownerName ?? "?") at x=\(Int($0.frame.x)),y=\(Int($0.frame.y)) \(Int($0.frame.width))x\(Int($0.frame.height))"
         }
