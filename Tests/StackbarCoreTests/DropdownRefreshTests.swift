@@ -93,6 +93,19 @@ struct DropdownRefreshTests {
         #expect(Set(bar.captured[2]) == Set(Self.dropdown))
     }
 
+    /// Switching the private capture on retries the items behind the notch without an image.
+    @Test func enablingThePrivateCaptureRetriesClippedItems() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let refresh = DropdownRefresh(driver: bar, capturer: bar)
+        _ = await refresh.run()
+        #expect(await refresh.run().outcome == .upToDate)
+
+        bar.capturesClippedItems = true
+        let report = await refresh.run()
+        #expect(report.outcome == .refreshed)
+        #expect(report.captured == Set(Self.dropdown))
+    }
+
     /// Images kept from an earlier launch: opening the panel doesn't reveal anything.
     @Test func keptImagesNeedNoReveal() async throws {
         let bar = try FakeMenuBar(collapsed: true)

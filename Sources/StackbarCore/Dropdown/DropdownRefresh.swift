@@ -49,6 +49,9 @@ public final class DropdownRefresh {
     /// Dropdown items a refresh already tried: without an image they are behind the notch with no
     /// private capture, or failed. They don't make the next open flash again.
     private var attempted: Set<UInt32> = []
+    /// `capturesClippedItems` when `attempted` was filled: switching the private capture on makes
+    /// the items behind the notch capturable, so they are tried again.
+    private var attemptedWithClipped = false
 
     public init(driver: any MenuBarDriver, capturer: any ItemCapturing) {
         self.driver = driver
@@ -69,6 +72,10 @@ public final class DropdownRefresh {
         }
         var report = Report(outcome: .refreshed, dropdown: dropdown.map(\.window.windowID), isCollapsed: false)
 
+        if capturer.capturesClippedItems != attemptedWithClipped {
+            attempted = []
+            attemptedWithClipped = capturer.capturesClippedItems
+        }
         let needsCapture = force || dropdown.contains {
             !attempted.contains($0.window.windowID) && !capturer.hasImage(of: $0)
         }
