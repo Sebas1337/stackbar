@@ -201,6 +201,15 @@ public struct AXItemInfo: Codable, Sendable, Equatable {
 
 /// Stackbar's own status items.
 public struct StackbarItemsInfo: Codable, Sendable, Equatable {
+    /// Autosave names of the icon and the divider. On the active display they are also the
+    /// titles of their windows in the window list.
+    public static let iconAutosaveName = "StackbarIcon"
+    public static let dividerAutosaveName = "StackbarDivider"
+    /// Divider length while expanded, and while collapsed: long enough to push every item left
+    /// of it off-screen (spike S8).
+    public static let expandedDividerLength = 14.0
+    public static let collapsedDividerLength = 10_000.0
+
     public var iconWindowID: UInt32?
     public var dividerWindowID: UInt32?
     /// Current length of the divider in points, nil when there is no divider.
@@ -210,5 +219,14 @@ public struct StackbarItemsInfo: Codable, Sendable, Equatable {
         self.iconWindowID = iconWindowID
         self.dividerWindowID = dividerWindowID
         self.dividerLength = dividerLength
+    }
+
+    /// True while the divider pushes the dropdown items off-screen.
+    public var isCollapsed: Bool {
+        Self.isCollapsed(dividerLength: dividerLength)
+    }
+
+    public static func isCollapsed(dividerLength: Double?) -> Bool {
+        (dividerLength ?? 0) >= collapsedDividerLength
     }
 }

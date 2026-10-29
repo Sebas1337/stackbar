@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **M1 done (v0.2.0, 2026-10-29). Next: M2 (collapse & divider).**
+Status: **M2 done (v0.3.0, 2026-10-29). Next: M3 (dropdown panel).**
 
 ## Goal
 
@@ -29,8 +29,9 @@ dropdown**.
 | Test hardware | One Mac: 16" MacBook Pro (M1 Pro/Max, notched), macOS 26. Its external display gives the no-notch and two-display cases. Everything is verified on this machine and on the `macos-26` CI runner |
 | Fixtures | The repo is public, so dumps are redacted by the app by default and fixtures stay unedited app output. Kept: titles of Apple (`com.apple.*`) and Stackbar menu bar items, bundle ids and process names of Apple and Stackbar, PIDs, window ids, frames, layers, on-screen flags, screen/notch geometry, versions, permission state. Titles of all other windows (menus, popovers, Safari/Finder panels can hold page or document names) and everything of other apps are hashed with a key stored only on the Mac (stable across dumps): titles become hash + length, bundle ids and process names become `hash:<hex>`, also inside notes (decided 2026-10-29: a public fixture must not reveal which apps the user runs). Never collected: computer name, user name, file paths, display serials. The dump records `"redacted": true`; `--dump --raw` is for local debugging and is never committed |
 | Item identity | Decided by M1 (S6/S7): on macOS 26 every status item window is owned by Control Center, so the window's owner PID says nothing. The owning app comes from Accessibility: each app's `AXExtrasMenuBar` children, matched to windows by frame (`MenuBarItemJoin`: AX content-frame center inside the window). Identity = that bundle id + the window title (`kCGWindowName`, Screen Recording only), which on the active display is the item's autosave name (`Clock`, `WiFi`, `StackbarIcon`, or `Item-N` for apps that set none). Without a usable title: bundle id + ordinal among that app's items, left to right. Public API only; no private CoreGraphics/SkyLight calls needed |
+| Classification | Decided in M2 (`MenuBarLayout`): items are the active display's status windows (≤ 50 pt high) that are AX-joined or sit in its menu bar band; copies on other displays and status-level panels are left out. An item whose center is left of the divider's right edge is **dropdown**, the rest **bar** (no divider: all bar). Split by order, not the divider's width, so collapsed classifies the same way. **Clipped** = off-screen and overlapping the notch, independent of the section. Without Accessibility, collapsed dropdown items can't be found and identities are unknown |
 | Re-apply trigger | Poll the window list every 2 s, plus immediately on `NSWorkspace` app launch/terminate and on screen-parameter changes. Tune in M4 |
-| First run | Starts expanded with nothing assigned to the dropdown. Collapsing is enabled only after onboarding (permissions + how to assign items) has finished |
+| First run | Starts expanded with nothing assigned to the dropdown, on every launch. Until M4 collapsing is available right away (click the icon; the user ⌘-drags items across the divider by hand). From M4 on, collapsing is enabled only after onboarding (permissions + how to assign items) has finished |
 | Image refresh | Decided by S1: ScreenCaptureKit can't capture a window pushed off-screen by the divider ("Failed to start stream due to audio/video capture failure"); on-screen capture by window id works. So: reveal → capture → collapse on panel open, cached between opens |
 | Click forwarding | Decided by S2: expand → AXPress on the item's AX element → wait for its menu/popover to close → collapse. AXPress opens menus (NSMenu, Electron) and popovers like a real click; collapsed, the menu opens off-screen or clamped, so always expand first. Some apps return `kAXErrorCannotComplete` (-25204) while their menu still opens (ignore it); apps returning `kAXErrorActionUnsupported` (-25206) get a synthesized `CGEvent` click at the item's frame instead. Detect "opened" as a window of that app becoming visible (apps such as Stats reuse their panel window) |
 | Moving items | Decided by S3/S4: a synthesized ⌘-drag (mouse down with ⌘ at the item center, 20 drag steps, mouse up, cursor restored) moves items across the divider in both directions, Apple and third-party. Immovable: Clock and Control Center (verified); Siri assumed (not in the test bar) |
@@ -75,7 +76,10 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    items. When collapsed, the divider's length grows (~10 000 pt) so dropdown items are pushed
    off-screen; expanded restores the normal length and everything shows in the bar. Verified by S8: the
    icon stays visible, the divider itself goes off-screen too (its image is centered in the long
-   button), so the icon is the collapse toggle.
+   button), so the icon is the collapse toggle. Until M3 a left click on the icon toggles collapse
+   (right click / ⌃-click opens its menu); the icon is filled while collapsed. Stackbar always
+   launches expanded, and refuses to collapse (with an alert) unless the divider is left of the
+   icon, because the icon would otherwise go off-screen with no way back.
 3. **Show in dropdown**: images of dropdown items are captured per window ID with
    ScreenCaptureKit (`SCContentFilter(desktopIndependentWindow:)` + `SCScreenshotManager`) and
    rendered in an `NSPanel` under the icon. Off-screen windows can't be captured (S1), so on
@@ -199,6 +203,12 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   geometry → which items are bar, dropdown, clipped; tested against the fixtures
 - Done when: toggling collapse on the host hides and reveals the items left of the divider,
   and Core's classification matches every fixture.
+- **Result (2026-10-29)**: done. Verified on the host: the icon click collapses and expands.
+  Collapsed (fixture `m2-mbp16-macos26-collapsed.json`): dropdown item windows move to
+  x ≈ −4230…−3775, off-screen; the window list clips the divider to x = −3775, 5016 pt wide,
+  off-screen, with its right edge and window id unchanged; bar items and the icon don't move.
+  macOS may reorder dropdown items when collapsing (two neighbours swapped). `MenuBarLayout`
+  classifies all six fixtures.
 
 **M3 — Dropdown panel (v0.4.0)**
 - `NSPanel` anchored under the icon showing captured images of dropdown items (single row at
@@ -248,7 +258,9 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
 - **Menu bar flash**: revealing items for capture, clicks and moves reflows the menu bar for a
   moment. Accepted; keep the window as short as possible.
 - **Item identity** across relaunches: decided (bundle id + title, fallback ordinal); apps with
-  several untitled items remain best effort.
+  several untitled items remain best effort. The left-to-right order of dropdown items is not stable
+  (collapsing swapped two neighbours, m2 fixtures), so ordinals and any per-section order must
+  not be trusted across collapse; M4 matches by title first.
 - **Multiple displays**: each display has its own menu bar with its own item windows; v1 targets
   the active display (S6).
 - **Click forwarding UX**: menus must open in a sensible position, not off-screen; hence

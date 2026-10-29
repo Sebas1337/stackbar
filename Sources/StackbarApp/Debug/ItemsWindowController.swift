@@ -41,10 +41,11 @@ struct ItemRow: Identifiable {
     var id: UInt32 { window.windowID }
     var window: WindowInfo
     var ax: AXMenuBarItem?
-    var isStackbar: Bool
-    var overlapsNotch: Bool
+    /// From `MenuBarLayout`: bar / dropdown (+ clipped), icon, divider; empty for windows that
+    /// aren't items of the active display (copies on other displays, panels).
+    var section: String
 
-    var app: String { ax?.info.bundleID ?? (isStackbar ? "Stackbar" : "?") }
+    var app: String { ax?.info.bundleID ?? (section == "icon" || section == "divider" ? "Stackbar" : "?") }
     var name: String {
         [ax?.info.title?.plainText, ax?.info.axDescription?.plainText, window.title?.plainText]
             .compactMap { $0 }.first ?? ""
@@ -67,8 +68,7 @@ final class ItemsModel {
         self.debug = debug
     }
 
-    var hasDivider: Bool { debug.divider != nil }
-    var isCollapsed: Bool { debug.divider?.isCollapsed ?? false }
+    var isCollapsed: Bool { debug.menuBar.isCollapsed }
 
     func startAutoRefresh() {
         guard timer == nil else { return }
@@ -89,17 +89,34 @@ final class ItemsModel {
         permissions = PermissionState.current
         let windows = WindowListReader.windows()
         let axItems = AXMenuBarReader.items()
-        let screen = ScreenReader.screens().first { $0.isPrimary }
-        let ownIDs = debug.stackbarWindowIDs
+        let layout = MenuBarLayout.classify(
+            screens: ScreenReader.screens(),
+            windows: windows,
+            axItems: axItems.map(\.info),
+            stackbarItems: debug.menuBar.stackbarItems(in: windows)
+        )
+        let sections = layout.map(Self.sections(in:)) ?? [:]
+        // All status windows, not only the layout's items: copies on other displays stay visible.
         let joined = MenuBarItemJoin.join(windows: windows, axItems: axItems.map(\.info))
         rows = joined.map { item in
             ItemRow(
                 window: item.window,
                 ax: item.axItem.flatMap { info in axItems.first { $0.info == info } },
-                isStackbar: ownIDs.contains(item.window.windowID),
-                overlapsNotch: screen.map { NotchGeometry.overlapsNotch(item.window.frame, on: $0) } ?? false
+                section: sections[item.window.windowID] ?? ""
             )
         }
+    }
+
+    /// Section column text per window id.
+    private static func sections(in layout: MenuBarLayout) -> [UInt32: String] {
+        var sections: [UInt32: String] = [:]
+        for item in layout.items {
+            sections[item.window.windowID] = item.section.rawValue
+                + (item.isClipped ? ", clipped" : "") + (item.isImmovable ? ", immovable" : "")
+        }
+        if let icon = layout.icon { sections[icon.windowID] = "icon" }
+        if let divider = layout.divider { sections[divider.windowID] = "divider" }
+        return sections
     }
 
     private var selectedRow: ItemRow? { rows.first { $0.id == selection } }
@@ -117,13 +134,8 @@ final class ItemsModel {
 
     // MARK: Divider
 
-    func toggleDivider() {
-        debug.toggleDivider()
-        refresh()
-    }
-
     func toggleCollapsed() {
-        debug.setCollapsed(!isCollapsed)
+        debug.menuBar.toggleCollapsed()
         refresh()
     }
 
@@ -133,16 +145,16 @@ final class ItemsModel {
     /// pushed off-screen if it is left of the divider), captures, and expands again.
     func capture(collapsed: Bool) {
         guard let row = selectedRow else { return }
-        let debug = debug
+        let menuBar = debug.menuBar
         let wasCollapsed = isCollapsed
         run {
             if collapsed && !wasCollapsed {
-                debug.setCollapsed(true)
+                guard menuBar.setCollapsed(true) else { return "Collapse refused; nothing captured." }
                 try? await Task.sleep(for: .milliseconds(700))
             }
             let window = WindowListReader.windows().first { $0.windowID == row.window.windowID } ?? row.window
             let result = await SpikeActions.capture(window: window, label: collapsed ? "collapsed" : "current")
-            if collapsed && !wasCollapsed { debug.setCollapsed(false) }
+            if collapsed && !wasCollapsed { menuBar.setCollapsed(false) }
             if let file = result.file { NSWorkspace.shared.open(file) }
             return result.message
         }
@@ -155,10 +167,10 @@ final class ItemsModel {
             status = "No AX element for this item (needs Accessibility, or no frame match)."
             return
         }
-        let debug = debug
+        let menuBar = debug.menuBar
         run {
             if collapsed {
-                debug.setCollapsed(true)
+                guard menuBar.setCollapsed(true) else { return "Collapse refused; nothing pressed." }
                 try? await Task.sleep(for: .milliseconds(700))
             }
             let message = await SpikeActions.press(ax)
@@ -172,10 +184,11 @@ final class ItemsModel {
     /// ⌘-drags the selected item to the other side of the divider.
     func dragAcrossDivider() {
         guard let row = selectedRow else { return }
-        guard let dividerID = debug.divider?.windowID,
-              let divider = WindowListReader.windows().first(where: { $0.windowID == dividerID })
+        let windows = WindowListReader.windows()
+        guard let dividerID = debug.menuBar.divider.windowID(in: windows),
+              let divider = windows.first(where: { $0.windowID == dividerID })
         else {
-            status = "Show the divider first."
+            status = "Divider not found in the window list."
             return
         }
         guard !isCollapsed else {
@@ -239,19 +252,17 @@ struct ItemsView: View {
                     .width(40)
                 TableColumn("On screen") { Text($0.window.isOnScreen ? "yes" : "no") }
                     .width(70)
-                TableColumn("Notch") { Text($0.overlapsNotch ? "overlaps" : "") }
-                    .width(60)
+                TableColumn("Section") { Text($0.section) }
+                    .width(min: 70, ideal: 130)
                 TableColumn("AX frame") { row in
                     Text(row.ax?.info.frame.map(SpikeActions.describe) ?? "–").monospacedDigit()
                 }
                 .width(min: 120, ideal: 150)
             }
 
-            GroupBox("Divider (S8)") {
+            GroupBox("Divider") {
                 HStack {
-                    Button(model.hasDivider ? "Remove divider" : "Show divider") { model.toggleDivider() }
                     Button(model.isCollapsed ? "Expand" : "Collapse (10 000 pt)") { model.toggleCollapsed() }
-                        .disabled(!model.hasDivider)
                     Spacer()
                 }
             }
@@ -260,14 +271,11 @@ struct ItemsView: View {
                 HStack {
                     Button("Capture (S1)") { model.capture(collapsed: false) }
                     Button("Capture while collapsed (S1)") { model.capture(collapsed: true) }
-                        .disabled(!model.hasDivider)
                     Divider().frame(height: 16)
                     Button("AXPress (S2)") { model.press(collapsed: false) }
                     Button("AXPress while collapsed (S2)") { model.press(collapsed: true) }
-                        .disabled(!model.hasDivider)
                     Divider().frame(height: 16)
                     Button("⌘-drag across divider (S3/S4)") { model.dragAcrossDivider() }
-                        .disabled(!model.hasDivider)
                     Spacer()
                 }
                 .disabled(model.selection == nil || model.busy)

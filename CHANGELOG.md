@@ -6,6 +6,15 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The divider (a slanted line left of the Stackbar icon) is always there. Click the icon to
+  collapse: everything left of the divider moves out of view; click again to bring it back.
+  ⌘-drag items across the divider to choose what collapses. Stackbar always starts expanded.
+- Debug → Menu Bar Items shows each item's section (bar, dropdown, clipped, immovable).
+
+### Changed
+- The icon's menu (version, Debug, Quit) moved to a right click (or ⌃-click).
+
 ## [0.2.0] - 2026-10-29
 
 ### Added
