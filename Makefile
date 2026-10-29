@@ -8,8 +8,17 @@ APP := build/Stackbar.app
 build:
 	swift build
 
+# Command Line Tools 26.3 ships _Testing_Foundation.framework without its module, so
+# `import Testing` + `import Foundation` fails there. Point at the CLT frameworks and skip the
+# cross-import overlay (not needed by our tests). Xcode, CI and Linux use plain `swift test`.
+CLT_FRAMEWORKS := /Library/Developer/CommandLineTools/Library/Developer/Frameworks
+ifeq ($(shell xcode-select -p 2>/dev/null),/Library/Developer/CommandLineTools)
+TEST_FLAGS := -Xswiftc -F$(CLT_FRAMEWORKS) -Xswiftc -Xfrontend -Xswiftc -disable-cross-import-overlays \
+	-Xlinker -F$(CLT_FRAMEWORKS) -Xlinker -rpath -Xlinker $(CLT_FRAMEWORKS)
+endif
+
 test:
-	swift test
+	swift test $(TEST_FLAGS)
 
 # ARCHS="arm64 x86_64" builds a universal binary (default: host architecture only).
 app:
