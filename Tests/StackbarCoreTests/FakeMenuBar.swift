@@ -18,7 +18,7 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     var pressResult = PressResult.success
     var pressed: [UInt32] = []
     var clicked: [Rect] = []
-    /// Opened by a press or click: visible for this many window-list reads at the normal level.
+    /// Opened by a press or click: visible for this many `visibleWindows` reads.
     var menu: WindowInfo?
     var menuReads = 0
     private var remainingMenuReads = 0
@@ -40,8 +40,12 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     }
 
     func windows(minimumLayer: Int) -> [WindowInfo] {
-        var windows = snapshot.windows.filter { $0.layer >= minimumLayer }
-        if minimumLayer == 0, remainingMenuReads > 0, let menu {
+        snapshot.windows.filter { $0.layer >= minimumLayer }
+    }
+
+    func visibleWindows() -> [WindowInfo] {
+        var windows = snapshot.windows.filter(\.isOnScreen)
+        if remainingMenuReads > 0, let menu {
             remainingMenuReads -= 1
             windows.append(menu)
         }

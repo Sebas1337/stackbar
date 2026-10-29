@@ -9,6 +9,8 @@ public protocol MenuBarDriver: AnyObject {
     func layout() -> MenuBarLayout?
     /// The window list from `minimumLayer` up, without Accessibility: cheap enough to poll.
     func windows(minimumLayer: Int) -> [WindowInfo]
+    /// Every on-screen window, all layers: a cheap read to find and follow the menu an item opened.
+    func visibleWindows() -> [WindowInfo]
     var isCollapsed: Bool { get }
     /// Returns whether the menu bar is now in the requested state (collapsing can be refused).
     @discardableResult

@@ -79,7 +79,7 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    button), so the icon is the collapse toggle. A left click on the icon opens the dropdown panel (which
    collapses); right click / ⌃-click opens its menu with Show All Items / Collapse Menu Bar. The
    icon is filled while collapsed. Stackbar always
-   launches expanded, and refuses to collapse (with an alert) unless the divider is left of the
+   launches expanded, and refuses to collapse (with an alert from the icon's menu, a note in the panel otherwise) unless the divider is left of the
    icon, because the icon would otherwise go off-screen with no way back.
 3. **Show in dropdown**: images of dropdown items are captured per window ID with
    ScreenCaptureKit (`SCContentFilter(desktopIndependentWindow:)` + `SCScreenshotManager`) and

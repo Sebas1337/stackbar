@@ -92,9 +92,4 @@ public final class DropdownRefresh {
         report.isCollapsed = driver.isCollapsed
         return report
     }
-
-    /// Forget the throttle, e.g. after an item was used and its image may have changed.
-    public func invalidate() {
-        lastRefresh = nil
-    }
 }

@@ -84,7 +84,7 @@ public struct ClickForwarding {
               let pid = target.ax?.pid
         else { return finish(.itemNotFound) }
 
-        let before = driver.windows(minimumLayer: 0)
+        let before = driver.visibleWindows()
         let press = presser.press(target)
         report.press = press
         switch press {
@@ -100,7 +100,7 @@ public struct ClickForwarding {
         var opened: [WindowInfo] = []
         for _ in 0..<timing.openPolls {
             await driver.sleep(milliseconds: timing.pollIntervalMilliseconds)
-            opened = MenuWindows.opened(before: before, after: driver.windows(minimumLayer: 0), pid: pid)
+            opened = MenuWindows.opened(before: before, after: driver.visibleWindows(), pid: pid)
             if !opened.isEmpty { break }
         }
         report.opened = opened.map(\.windowID)
@@ -110,7 +110,7 @@ public struct ClickForwarding {
             outcome = .timedOut
             for _ in 0..<timing.closePolls {
                 await driver.sleep(milliseconds: timing.closeIntervalMilliseconds)
-                if !MenuWindows.isStillOpen(opened, in: driver.windows(minimumLayer: 0)) {
+                if !MenuWindows.isStillOpen(opened, in: driver.visibleWindows()) {
                     outcome = .closed
                     break
                 }

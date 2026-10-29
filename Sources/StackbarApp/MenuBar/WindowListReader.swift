@@ -12,9 +12,10 @@ enum WindowListReader {
     }
 
     /// Every window at `minimumLayer` or above (0 includes normal app windows, e.g. popovers
-    /// some apps show at the normal level).
-    static func windows(minimumLayer: Int) -> [WindowInfo] {
-        guard let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else {
+    /// some apps show at the normal level). `onScreenOnly` makes the read much cheaper, for
+    /// polling; off-screen windows (collapsed or clipped items) are then missing.
+    static func windows(minimumLayer: Int, onScreenOnly: Bool = false) -> [WindowInfo] {
+        guard let list = CGWindowListCopyWindowInfo(onScreenOnly ? [.optionOnScreenOnly] : [.optionAll], kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
         var bundleIDs: [pid_t: String?] = [:]

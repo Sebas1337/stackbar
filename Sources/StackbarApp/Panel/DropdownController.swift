@@ -54,14 +54,21 @@ final class DropdownController {
         enqueue { [weak self] in
             guard let self else { return }
             let report = await refresh.run { [weak self] items in self?.show(items) }
-            if report.outcome != .noLayout {
+            if report.outcome == .noLayout {
+                // Last time's items may be gone; don't offer them.
+                show([])
+            } else {
                 capturer.keepImages(of: Set(report.dropdown))
+                show(model.items.map(\.menuBarItem))
             }
             model.isEmpty = report.outcome == .empty
-            model.notice = report.outcome == .noLayout
-                ? "Stackbar couldn't find its icon or divider in the menu bar. Try again in a moment."
-                : nil
-            show(model.items.map(\.menuBarItem))
+            if report.outcome == .noLayout {
+                model.notice = "Stackbar couldn't find its icon or divider in the menu bar. Try again in a moment."
+            } else if report.outcome != .empty, !report.isCollapsed {
+                model.notice = menuBar.refusal
+            } else {
+                model.notice = nil
+            }
             log(report.description)
         }
     }
@@ -70,7 +77,12 @@ final class DropdownController {
         guard isOpen else { return }
         removeMonitors()
         panel.orderOut(nil)
-        lastClose = Date()
+    }
+
+    /// Show All Items / Collapse Menu Bar from the icon's menu. Queued, so it doesn't change the
+    /// menu bar in the middle of a refresh or a forwarded click.
+    func toggleCollapsed() {
+        enqueue { [weak self] in self?.menuBar.toggleCollapsed() }
     }
 
     private func forward(_ item: MenuBarItem) {
@@ -153,7 +165,11 @@ final class DropdownController {
         resignObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
+            MainActor.assumeIsolated {
+                guard let self, isOpen else { return }
+                close()
+                lastClose = Date()
+            }
         }
     }
 

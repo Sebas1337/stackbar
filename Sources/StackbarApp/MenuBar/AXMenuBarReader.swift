@@ -57,7 +57,7 @@ enum AXMenuBarReader {
         return .plain(string)
     }
 
-    private static func frame(of element: AXUIElement) -> Rect? {
+    static func frame(of element: AXUIElement) -> Rect? {
         guard let positionValue: AXValue = attribute(element, kAXPositionAttribute),
               let sizeValue: AXValue = attribute(element, kAXSizeAttribute)
         else { return nil }

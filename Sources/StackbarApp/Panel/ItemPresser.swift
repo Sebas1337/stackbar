@@ -7,7 +7,7 @@ import StackbarCore
 @MainActor
 final class ItemPresser: ItemPressing {
     func press(_ item: MenuBarItem) -> PressResult {
-        guard AXIsProcessTrusted(), let ax = item.ax, let element = Self.element(pid: ax.pid, index: ax.index) else {
+        guard AXIsProcessTrusted(), let ax = item.ax, let element = Self.element(for: ax) else {
             return .failed(AXError.invalidUIElement.rawValue)
         }
         return PressResult(axError: AXUIElementPerformAction(element, kAXPressAction as CFString).rawValue)
@@ -28,17 +28,21 @@ final class ItemPresser: ItemPressing {
         CGWarpMouseCursorPosition(savedCursor)
     }
 
-    /// The `index`th child of the app's extras menu bar, with the same short messaging timeout as
-    /// `AXMenuBarReader` (an app busy opening its menu answers AXPress late, S2: -25204).
-    private static func element(pid: Int32, index: Int) -> AXUIElement? {
-        let app = AXUIElementCreateApplication(pid)
+    /// The item's element in the app's extras menu bar, read again: its `index`th child when that
+    /// still has the item's frame, otherwise the child with that frame (the app's items changed
+    /// since the layout was read). Same short messaging timeout as `AXMenuBarReader`: an app busy
+    /// opening its menu answers AXPress late (S2: -25204).
+    private static func element(for ax: AXItemInfo) -> AXUIElement? {
+        let app = AXUIElementCreateApplication(ax.pid)
         AXUIElementSetMessagingTimeout(app, AXMenuBarReader.messagingTimeout)
         guard let extras: AXUIElement = AXMenuBarReader.attribute(app, kAXExtrasMenuBarAttribute) else { return nil }
         AXUIElementSetMessagingTimeout(extras, AXMenuBarReader.messagingTimeout)
-        guard let children: [AXUIElement] = AXMenuBarReader.attribute(extras, kAXChildrenAttribute),
-              children.indices.contains(index)
-        else { return nil }
-        AXUIElementSetMessagingTimeout(children[index], AXMenuBarReader.messagingTimeout)
-        return children[index]
+        guard let children: [AXUIElement] = AXMenuBarReader.attribute(extras, kAXChildrenAttribute) else { return nil }
+        children.forEach { AXUIElementSetMessagingTimeout($0, AXMenuBarReader.messagingTimeout) }
+        if children.indices.contains(ax.index), AXMenuBarReader.frame(of: children[ax.index]) == ax.frame {
+            return children[ax.index]
+        }
+        guard let frame = ax.frame else { return nil }
+        return children.first { AXMenuBarReader.frame(of: $0) == frame }
     }
 }

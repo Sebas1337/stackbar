@@ -48,10 +48,6 @@ struct DropdownRefreshTests {
         let later = await refresh.run(now: start.addingTimeInterval(DropdownRefresh.maximumImageAge + 1))
         #expect(later.outcome == .refreshed)
         #expect(bar.captured.count == 2)
-
-        refresh.invalidate()
-        let invalidated = await refresh.run(now: start.addingTimeInterval(DropdownRefresh.maximumImageAge + 2))
-        #expect(invalidated.outcome == .refreshed)
     }
 
     @Test func failedCapturesAreReported() async throws {

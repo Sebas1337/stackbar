@@ -29,13 +29,19 @@ final class MenuBarController {
         )
     }
 
+    /// Why the last collapse was refused, for the user; nil after a successful change.
+    private(set) var refusal: String?
+
+    /// For an explicit request (the icon's menu): a refusal is explained in an alert.
     func toggleCollapsed() {
-        setCollapsed(!isCollapsed)
+        if !setCollapsed(!isCollapsed), let refusal {
+            showRefusal(refusal)
+        }
     }
 
-    /// Collapsing is refused (with an alert) unless the divider is left of the icon: otherwise
-    /// the icon would go off-screen too and nothing could expand again. Returns whether the
-    /// menu bar is now in the requested state.
+    /// Collapsing is refused unless the divider is left of the icon: otherwise the icon would go
+    /// off-screen too and nothing could expand again. Returns whether the menu bar is now in the
+    /// requested state; `refusal` says why not. No alert: the dropdown sequences call this too.
     @discardableResult
     func setCollapsed(_ collapsed: Bool) -> Bool {
         guard collapsed != isCollapsed else { return true }
@@ -50,10 +56,15 @@ final class MenuBarController {
             guard let layout, layout.canCollapse else {
                 let found = layout?.icon != nil && layout?.divider != nil
                 log("Collapse refused: \(found ? "divider not left of the icon" : "icon or divider not found in the window list")")
-                showRefusal(dividerMisplaced: found)
+                refusal = found
+                    ? "Stackbar's divider (the slanted line) must be left of the Stackbar icon. Hold ⌘ and "
+                        + "drag the divider to the left of the icon."
+                    : "Stackbar couldn't find its icon or divider in the menu bar. Try again in a moment; "
+                        + "if it keeps failing, use Debug → Copy Diagnostics and report it."
                 return false
             }
         }
+        refusal = nil
         divider.setCollapsed(collapsed)
         icon.showCollapsed(collapsed)
         log("Divider \(collapsed ? "collapsed" : "expanded") (length \(Int(divider.length)))")
@@ -65,18 +76,10 @@ final class MenuBarController {
         SpikeLog.shared.add(message)
     }
 
-    private func showRefusal(dividerMisplaced: Bool) {
+    private func showRefusal(_ text: String) {
         let alert = NSAlert()
         alert.messageText = "Can't collapse the menu bar"
-        alert.informativeText = dividerMisplaced
-            ? """
-                Stackbar's divider (the slanted line) must be left of the Stackbar icon. Hold ⌘ and \
-                drag the divider to the left of the icon, then click the icon again.
-                """
-            : """
-                Stackbar couldn't find its icon or divider in the menu bar. Try again in a moment; \
-                if it keeps failing, use Debug → Copy Diagnostics and report it.
-                """
+        alert.informativeText = text
         NSApp.activate()
         alert.runModal()
     }
@@ -96,6 +99,10 @@ extension MenuBarController: MenuBarDriver {
 
     func windows(minimumLayer: Int) -> [WindowInfo] {
         WindowListReader.windows(minimumLayer: minimumLayer)
+    }
+
+    func visibleWindows() -> [WindowInfo] {
+        WindowListReader.windows(minimumLayer: 0, onScreenOnly: true)
     }
 
     func sleep(milliseconds: Int) async {
