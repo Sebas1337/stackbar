@@ -31,9 +31,9 @@ dropdown**.
 | Item identity | Decided by M1 (S6/S7): on macOS 26 every status item window is owned by Control Center, so the window's owner PID says nothing. The owning app comes from Accessibility: each app's `AXExtrasMenuBar` children, matched to windows by frame (`MenuBarItemJoin`: AX content-frame center inside the window). Identity = that bundle id + the window title (`kCGWindowName`, Screen Recording only), which on the active display is the item's autosave name (`Clock`, `WiFi`, `StackbarIcon`, or `Item-N` for apps that set none). Without a usable title: bundle id + ordinal among that app's items, left to right. Public API only; no private CoreGraphics/SkyLight calls needed |
 | Classification | Decided in M2 (`MenuBarLayout`): items are the active display's status windows (≤ 50 pt high) that are AX-joined or sit in its menu bar band; copies on other displays and status-level panels are left out. An item whose center is left of the divider's right edge is **dropdown**, the rest **bar** (no divider: all bar). Split by order, not the divider's width, so collapsed classifies the same way. **Clipped** = off-screen and overlapping the notch, independent of the section. Without Accessibility, collapsed dropdown items can't be found and identities are unknown |
 | Re-apply trigger | Poll the window list every 2 s, plus immediately on `NSWorkspace` app launch/terminate and on screen-parameter changes. Tune in M4 |
-| First run | Starts expanded with nothing assigned to the dropdown, on every launch. Until M4 collapsing is available right away (click the icon; the user ⌘-drags items across the divider by hand). From M4 on, collapsing is enabled only after onboarding (permissions + how to assign items) has finished |
-| Image refresh | Decided by S1: ScreenCaptureKit can't capture a window pushed off-screen by the divider ("Failed to start stream due to audio/video capture failure"); on-screen capture by window id works. So: reveal → capture → collapse on panel open, cached between opens |
-| Click forwarding | Decided by S2: expand → AXPress on the item's AX element → wait for its menu/popover to close → collapse. AXPress opens menus (NSMenu, Electron) and popovers like a real click; collapsed, the menu opens off-screen or clamped, so always expand first. Some apps return `kAXErrorCannotComplete` (-25204) while their menu still opens (ignore it); apps returning `kAXErrorActionUnsupported` (-25206) get a synthesized `CGEvent` click at the item's frame instead. Detect "opened" as a window of that app becoming visible (apps such as Stats reuse their panel window) |
+| First run | Starts expanded with nothing assigned to the dropdown, on every launch. Until M4 collapsing is available right away (opening the panel collapses; Show All Items in the icon's menu expands, so the user can ⌘-drag items across the divider by hand). From M4 on, collapsing is enabled only after onboarding (permissions + how to assign items) has finished |
+| Image refresh | Decided by S1: ScreenCaptureKit can't capture a window pushed off-screen by the divider ("Failed to start stream due to audio/video capture failure"); on-screen capture by window id works. So: reveal → capture → collapse on panel open, cached between opens. Decided in M3 (`DropdownRefresh`): the panel opens at once with the cached images (the app's icon for items never captured), then reveals, captures and collapses; images younger than 10 s are reused, so reopening right away doesn't flash the bar again. Dropdown items behind the notch (clipped even while expanded) can't be captured: they keep their last image or show the app's icon |
+| Click forwarding | Decided by S2: expand → AXPress on the item's AX element → wait for its menu/popover to close → collapse. AXPress opens menus (NSMenu, Electron) and popovers like a real click; collapsed, the menu opens off-screen or clamped, so always expand first. Some apps return `kAXErrorCannotComplete` (-25204) while their menu still opens (ignore it); apps returning `kAXErrorActionUnsupported` (-25206) get a synthesized `CGEvent` click at the item's frame instead. Detect "opened" as a window of that app becoming visible (apps such as Stats reuse their panel window). Decided in M3 (`ClickForwarding`): "closed" = those windows left the window list or went off-screen, polled every 200 ms with a 60 s backstop; nothing opened within 1.5 s → collapse. No mouse-down monitor: a click outside closes menus and popovers, which the poll sees. AXPress uses the same 0.25 s AX messaging timeout as discovery. The item is captured again after its menu closes, while it is on-screen anyway |
 | Moving items | Decided by S3/S4: a synthesized ⌘-drag (mouse down with ⌘ at the item center, 20 drag steps, mouse up, cursor restored) moves items across the divider in both directions, Apple and third-party. Immovable: Clock and Control Center (verified); Siri assumed (not in the test bar) |
 | Displays | Decided by S6: every display's menu bar has its own window per item. The real items (original window ids, AX frames) live on the active display (`NSScreen.main`); other displays show copies with new window ids, titled with the owning app's bundle id, without AX frames. v1 works on the active display's items |
 | Accepted trade-offs | The menu bar reflows briefly whenever dropdown items are revealed (capture, click forwarding, moves). macOS 15+ shows periodic screen-capture re-consent alerts for Stackbar; onboarding explains them |
@@ -76,20 +76,24 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    items. When collapsed, the divider's length grows (~10 000 pt) so dropdown items are pushed
    off-screen; expanded restores the normal length and everything shows in the bar. Verified by S8: the
    icon stays visible, the divider itself goes off-screen too (its image is centered in the long
-   button), so the icon is the collapse toggle. Until M3 a left click on the icon toggles collapse
-   (right click / ⌃-click opens its menu); the icon is filled while collapsed. Stackbar always
+   button), so the icon is the collapse toggle. A left click on the icon opens the dropdown panel (which
+   collapses); right click / ⌃-click opens its menu with Show All Items / Collapse Menu Bar. The
+   icon is filled while collapsed. Stackbar always
    launches expanded, and refuses to collapse (with an alert) unless the divider is left of the
    icon, because the icon would otherwise go off-screen with no way back.
 3. **Show in dropdown**: images of dropdown items are captured per window ID with
    ScreenCaptureKit (`SCContentFilter(desktopIndependentWindow:)` + `SCScreenshotManager`) and
    rendered in an `NSPanel` under the icon. Off-screen windows can't be captured (S1), so on
-   panel open: reveal → capture → collapse, cached between opens.
+   panel open: reveal → capture → collapse, cached between opens (`DropdownRefresh`). One row at
+   menu bar size up to 480 pt, then wrapping (`DropdownGrid`); hovering names the item in the
+   panel's footer; Esc, a click elsewhere or losing key focus closes the panel. The panel takes
+   the menu bar's appearance, which the captured images were drawn for.
 4. **Click forwarding**: clicking an icon in the panel runs: expand → re-enumerate to get the
    item's on-screen frame → trigger the item (AXPress through the app's `AXExtrasMenuBar`, S2;
    a synthesized `CGEvent` click at the frame with the cursor restored afterwards only for apps
    that return `kAXErrorActionUnsupported`) → stay expanded until the item's menu or popover closes →
-   collapse. "Closed" means that app's menu window has left the window list, or a mouse-down
-   landed outside it, with a timeout as backstop. Menus therefore open at the item's real
+   collapse (`ClickForwarding`). "Closed" means the windows the app opened have left the window
+   list or gone off-screen, with a 60 s timeout as backstop. Menus therefore open at the item's real
    position in the bar.
 5. **Arrange**: moving an item between bar and dropdown is a synthesized ⌘-drag of the real
    item across the divider. Moves run only while expanded, because a ⌘-drag can't reach an
@@ -263,6 +267,11 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   not be trusted across collapse; M4 matches by title first.
 - **Multiple displays**: each display has its own menu bar with its own item windows; v1 targets
   the active display (S6).
+- **Clipped dropdown items**: on a full notched bar the leftmost dropdown items stay behind the
+  notch even while expanded (5 of 11 in the m2 fixtures). They can't be captured, and their menus
+  open wherever macOS puts them for an item it doesn't show (checked in M3). Making them visible
+  means moving them for a moment (⌘-drag right of the divider and back), which builds on M4's
+  moves.
 - **Click forwarding UX**: menus must open in a sensible position, not off-screen; hence
   reveal first (S2 confirmed: collapsed, menus open off-screen or clamped to the corner).
 - **Toolchain drift**: container Swift 6.2 vs host Command Line Tools 26 vs CI Xcode 26.x. Pinned to

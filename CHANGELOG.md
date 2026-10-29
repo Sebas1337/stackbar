@@ -6,6 +6,17 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Dropdown panel: click the Stackbar icon to see the items left of the divider in a panel under
+  the icon, as images of how they look in the menu bar (the app's icon for items behind the
+  notch). Opening it collapses the menu bar. Click an item to open its menu right where the item
+  sits in the menu bar; the menu bar collapses again once the menu closes. Esc or a click
+  elsewhere closes the panel.
+
+### Changed
+- Collapsing and expanding by hand moved to the icon's menu (right click): Show All Items /
+  Collapse Menu Bar.
+
 ## [0.3.0] - 2026-10-29
 
 ### Added
