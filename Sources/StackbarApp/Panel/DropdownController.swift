@@ -166,9 +166,9 @@ final class DropdownController {
             forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, isOpen else { return }
-                close()
-                lastClose = Date()
+                guard let self, self.isOpen else { return }
+                self.close()
+                self.lastClose = Date()
             }
         }
     }
