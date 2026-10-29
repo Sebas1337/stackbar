@@ -4,7 +4,7 @@ macOS menu bar manager: one Stackbar icon in the menu bar opens a dropdown panel
 status icons the user chose to hide. This solves cluttered menu bars and icons lost behind the
 notch. Full plan, decisions, terminology and milestones: @docs/PLAN.md
 
-Status (2026-10-29): M0 done (v0.1.0). Next milestone: **M1** (feasibility spike).
+Status (2026-10-29): M1 done (v0.2.0). Next milestone: **M2** (collapse & divider).
 
 ## Environment: read this first
 
@@ -31,14 +31,20 @@ If `uname` says Darwin you're on the host Mac and can build everything.
 ## Commands
 
 - `swift build` / `swift test` (or `make build` / `make test`): Core and its tests everywhere; on
-  macOS also the app
+  macOS also the app. On the host with Command Line Tools 26.3 use `make test`: plain
+  `swift test` fails there ("no such module '_Testing_Foundation'", a CLT packaging bug)
 - `make app`: bundle and sign `build/Stackbar.app` (host only). Signs with `SIGN_IDENTITY`
   (default "Stackbar Dev"), ad-hoc when that identity is missing (CI)
 - `make run`: `make app`, quit a running Stackbar, launch the new build (host only)
 - `make cert`: one-time self-signed "Stackbar Dev" signing identity (host only; asks for the
   login password to trust it)
 - `make clean`: remove `build/`
-- `build/Stackbar.app/Contents/MacOS/Stackbar --dump`: diagnostics JSON (host only, from M1)
+- `build/Stackbar.app/Contents/MacOS/Stackbar --dump`: redacted diagnostics JSON (host only).
+  From a shell it reports the shell's permissions; Debug → Copy Diagnostics in the running app
+  is the reference. On the host you can read a copied dump with `pbpaste`
+- Debug → Menu Bar Items…: live item table plus the M1 spike experiments (divider, capture,
+  AXPress, ⌘-drag); results land in the dump's `notes`
+- `gh` is not installed on the host; use the GitHub API with the token in `.env` (never print it)
 - Host prerequisite: macOS 26 + Command Line Tools (`xcode-select --install`); Xcode is not needed
 
 ## Architecture rules

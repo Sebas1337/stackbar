@@ -121,3 +121,18 @@ struct ExtendedFixtureTests {
         #expect(hashedOwners.isSubset(of: Set(titleHashes)))
     }
 }
+
+/// External display as primary and main, built-in below it: the no-notch case.
+struct ExternalPrimaryFixtureTests {
+    @Test func activeMenuBarIsOnTheDisplayWithoutNotch() throws {
+        let snapshot = try FixtureTests.load("m1-mbp16-macos26-external-primary.json")
+        let active = try #require(snapshot.screens.first { $0.isMain })
+        #expect(active.isPrimary)
+        #expect(NotchGeometry.notch(of: active) == nil)
+
+        // Real items (those with an AX match) all sit in the active display's menu bar.
+        let matched = MenuBarItemJoin.join(snapshot).filter { $0.axItem != nil }
+        #expect(matched.count == 22)
+        #expect(matched.allSatisfy { $0.window.frame.minY == active.frame.minY && $0.window.isOnScreen })
+    }
+}
