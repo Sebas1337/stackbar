@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v5
         with:
@@ -37,7 +37,7 @@ jobs:
         run: swift test
 
       - name: Build Stackbar.app
-        run: make app
+        run: make app ARCHS="arm64 x86_64" # universal: macOS 26 still runs on some Intel Macs
 
       - name: Package
         run: |

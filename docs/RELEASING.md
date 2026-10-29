@@ -34,6 +34,15 @@ has a published release; release a new patch version instead.
 
 ## Signing
 
-Until M5, release builds are signed with an ad-hoc signature only: macOS Gatekeeper will
-warn, and users must right-click → Open (or `xattr -dr com.apple.quarantine Stackbar.app`).
-M5 adds Developer ID signing + notarization (secrets in GitHub Actions) and a DMG.
+Until M5, release builds are signed ad-hoc only (CI has no signing identity). Consequences:
+
+- **Gatekeeper blocks the first launch** of a downloaded build. Since macOS 15, right-click →
+  Open no longer bypasses it: open the app once, then System Settings → Privacy & Security →
+  "Open Anyway". Or remove the quarantine flag: `xattr -dr com.apple.quarantine Stackbar.app`.
+- **Permissions reset on every update**: an ad-hoc signature changes with every build, so macOS
+  asks for Accessibility and Screen Recording again after each release.
+
+Local builds (`make app`) avoid the second point by signing with the self-signed "Stackbar Dev"
+identity (`make cert`). At M5 we choose between Developer ID signing + notarization (paid Apple
+Developer account, secrets in GitHub Actions, DMG) and a stable self-signed release certificate;
+see the Distribution decision in [PLAN.md](PLAN.md).

@@ -1,13 +1,13 @@
 # Stackbar — Plan
 
-Status: **draft, under review** (2026-10-29)
+Status: **reviewed 2026-10-29. M0 (foundation) in progress.**
 
 ## Goal
 
 A macOS menu bar utility that declutters the menu bar. Many apps add status icons, and on
 notched MacBooks the ones that don't fit simply disappear behind the notch. Stackbar puts one
 icon in the menu bar; clicking it opens a **dropdown panel** containing the icons you chose to
-hide. For each menu bar item the user decides: **always visible** in the bar, or **in the
+hide. For each menu bar item the user decides: **in the bar** (always visible) or **in the
 dropdown**.
 
 ## Decisions
@@ -17,12 +17,38 @@ dropdown**.
 | Scope | Dropdown panel from day one (not just a show/hide separator) |
 | Language / UI | Swift 6 (strict concurrency), AppKit for menu bar/panel plumbing, SwiftUI for content & settings |
 | Build | SwiftPM only (no Xcode project) + script that bundles `Stackbar.app`; works with Command Line Tools |
-| Minimum OS | macOS 14 Sonoma |
-| Distribution | Outside the Mac App Store (sandbox blocks the needed APIs). Developer ID signed + notarized, GitHub Releases |
+| Toolchain | `swift-tools-version: 6.2` (needed for `.macOS(.v26)`), deployment target macOS 26. Swift 6.2 is the floor everywhere: container Swift 6.2, host Command Line Tools 26 (Swift 6.2 or newer; Xcode not required), CI `macos-26` runner with Xcode 26 (same as `release.yml`). No language features newer than Swift 6.2, because the container is the lowest toolchain |
+| Package layout | `StackbarApp` is declared in `Package.swift` only under `#if os(macOS)`. `swift build` builds every target in the package, so this is what keeps `swift build` / `swift test` green on Linux. No `#if os(...)` inside app sources |
+| Minimum OS | macOS 26 Tahoe (decided 2026-10-29: it is the only OS we can test on, so no untested code paths for 14/15) |
+| Distribution | Outside the Mac App Store (sandbox blocks the needed APIs), via GitHub Releases. Ad-hoc signed until M5. At M5 choose: Developer ID + notarization (paid account, no Gatekeeper warning) or a stable self-signed release certificate (free; users click "Open Anyway" once, permissions survive updates) |
 | Versioning | SemVer, `VERSION` file is the source of truth, tags `vX.Y.Z`, `CHANGELOG.md` (Keep a Changelog). One minor per milestone until 1.0. Tag push → GitHub Release. See [RELEASING.md](RELEASING.md) |
 | License | MIT |
 | Dependencies | None to start. Adding any package needs explicit approval |
-| Dev environment | Devcontainer with Claude Code (yolo mode, open network) for writing code + testing `StackbarCore`; app built/run on the macOS host; GitHub Actions macOS runner as compile check for the app target |
+| Dev environment | Devcontainer with Claude Code (yolo mode, open network) for writing code + testing `StackbarCore`; app built/run on the macOS host; GitHub Actions macOS runner as compile check for the app target. The user is the eyes on the Mac: diagnostics dumps pasted back become test fixtures (see M1) |
+| Bundle identifier | `io.github.sebas1337.stackbar`. macOS ties granted permissions to it: never change it |
+| Test hardware | One Mac: 16" MacBook Pro (M1 Pro/Max, notched), macOS 26. Its external display gives the no-notch and two-display cases. Everything is verified on this machine and on the `macos-26` CI runner |
+| Fixtures | The repo is public, so dumps are redacted by the app by default and fixtures stay unedited app output. Kept: titles of `com.apple.*` items, bundle ids, PIDs, window ids, frames, layers, on-screen flags, screen/notch geometry, versions, permission state. Other titles become a keyed hash + length (key stored only on the Mac, stable across dumps). Never collected: computer name, user name, file paths, display serials. The dump records `"redacted": true`; `--dump --raw` is for local debugging and is never committed |
+| Item identity | Bundle identifier (via `NSRunningApplication` for the owner PID) + window title (`kCGWindowName`, present only with Screen Recording). Without a title: bundle identifier + ordinal among that app's items, left to right. Several untitled items from one app are best effort |
+| Re-apply trigger | Poll the window list every 2 s, plus immediately on `NSWorkspace` app launch/terminate and on screen-parameter changes. Tune in M4 |
+| First run | Starts expanded with nothing assigned to the dropdown. Collapsing is enabled only after onboarding (permissions + how to assign items) has finished |
+| Image refresh | Decided by spike S1: continuous (on panel open + every few seconds while open) if off-screen windows can be captured; otherwise reveal → capture → collapse on panel open, cached between opens |
+| Accepted trade-offs | The menu bar reflows briefly whenever dropdown items are revealed (capture, click forwarding, moves). macOS 15+ shows periodic screen-capture re-consent alerts for Stackbar; onboarding explains them |
+
+## Terminology
+
+Use these words in code, tests, docs and UI. "Hidden" is ambiguous (dropdown or clipped?) and
+is avoided.
+
+- **bar**: an item the user keeps in the menu bar (right of the divider).
+- **dropdown**: an item the user assigned to Stackbar's panel (left of the divider).
+- **clipped**: an item macOS hides behind the notch because it does not fit. Computed from
+  geometry, never chosen by the user.
+- **collapsed / expanded**: state of the divider. Collapsed pushes dropdown items off-screen;
+  expanded shows everything in the bar.
+- **immovable**: system items that refuse ⌘-drag (at least Clock, Control Center, Siri; spike
+  S4 confirms the list). Stackbar never touches them.
+- **icon** and **divider**: Stackbar's own two status items. The icon opens the panel; the
+  divider separates bar items from dropdown items.
 
 ## How it works (technical approach)
 
@@ -30,86 +56,181 @@ Other apps' status items can't be "adopted" by another process. They stay in the
 bar. Stackbar makes them disappear from view and shows a stand-in in its own panel:
 
 1. **Discover** items: `CGWindowListCopyWindowInfo` → windows at status-window level give
-   owner PID/app, window ID and frame of every menu bar item. Notch geometry from
-   `NSScreen.safeAreaInsets` / `auxiliaryTopLeftArea` / `auxiliaryTopRightArea`.
-2. **Hide**: Stackbar owns a *divider* status item. Items to the left of it are "hidden"; when
-   collapsed the divider's length grows (~10 000 pt) so those items are pushed off-screen.
-3. **Show in dropdown**: images of hidden items are captured (ScreenCaptureKit; briefly
-   revealed if needed, then cached) and rendered in an `NSPanel` under the Stackbar icon.
-4. **Click forwarding**: clicking an icon in the panel temporarily moves/reveals the real item
-   and performs the click (synthesized `CGEvent` or Accessibility `AXPress`), so the app's own
-   menu opens where expected.
-5. **Arrange**: moving an item between visible/hidden is done by synthesizing a ⌘-drag of the
-   real item across the divider. The desired layout is persisted and re-applied when apps
-   relaunch.
+   owner PID, window ID and frame of every menu bar item; the bundle identifier comes from
+   `NSRunningApplication` for that PID. Window titles (`kCGWindowName`) are only present with
+   Screen Recording permission. Notch geometry from `NSScreen.safeAreaInsets` /
+   `auxiliaryTopLeftArea` / `auxiliaryTopRightArea`. v1 only looks at the main display's
+   windows (spike S6 says what the list contains with two displays).
+2. **Hide**: Stackbar owns two status items: the **icon** (opens the panel) and, left of it,
+   the **divider**. Items left of the divider are dropdown items; items right of it are bar
+   items. When collapsed, the divider's length grows (~10 000 pt) so dropdown items are pushed
+   off-screen; expanded restores the normal length and everything shows in the bar.
+3. **Show in dropdown**: images of dropdown items are captured per window ID with
+   ScreenCaptureKit and rendered in an `NSPanel` under the icon. Images go stale (battery, VPN,
+   sync icons), so refresh matters: per the Image refresh decision, either continuous capture
+   of the off-screen windows (if S1 allows it) or reveal → capture → collapse on panel open.
+4. **Click forwarding**: clicking an icon in the panel runs: expand → re-enumerate to get the
+   item's on-screen frame → trigger the item (AXPress through the app's `AXExtrasMenuBar` if S2
+   shows it behaves like a real click, else a synthesized `CGEvent` click at the frame with the
+   cursor restored afterwards) → stay expanded until the item's menu or popover closes →
+   collapse. "Closed" means that app's menu window has left the window list, or a mouse-down
+   landed outside it, with a timeout as backstop. Menus therefore open at the item's real
+   position in the bar.
+5. **Arrange**: moving an item between bar and dropdown is a synthesized ⌘-drag of the real
+   item across the divider. Moves run only while expanded, because a ⌘-drag can't reach an
+   off-screen item: expand → for each move: ⌘-drag, re-enumerate, verify, retry once →
+   collapse. Core produces the ordered move list from desired vs actual layout; the app
+   executes it. Immovable items are never touched. Fallback if S3 shows ⌘-drag synthesis is
+   unreliable: the user drags manually; Stackbar only persists and reports.
+6. **Watch & re-apply**: the window list is polled (see Re-apply trigger). New items that match
+   a persisted identity are moved to their assigned section via step 5; unknown items stay
+   where macOS puts them and show up in Settings.
 
 Required permissions: **Accessibility** (moving items, click forwarding) and **Screen
-Recording** (item images, window info). Onboarding must explain and request them.
+Recording** (item images, window titles). Onboarding must explain and request them. Permissions
+are bound to the code signature, hence the stable self-signed identity from M0.
 
 ## Architecture
 
 ```
+Package.swift        Core library + Core tests; App executable only under #if os(macOS)
+Makefile             make test | app | run | cert
 Sources/
   StackbarCore/      Pure Swift, Foundation only. Builds & tests on Linux (in the devcontainer).
-    Model/           MenuBarItem, ItemIdentity, Section (visible | hidden), Layout
-    Layout/          Notch-aware fit calculation, diffing desired vs actual → list of moves
+    Model/           MenuBarItem, ItemIdentity, Section (bar | dropdown), geometry, DiagnosticsSnapshot
+    Layout/          Notch-aware classification (bar / dropdown / clipped), diffing desired vs actual → ordered moves
     Persistence/     Codable config, migration, matching items across app relaunches
   StackbarApp/       macOS only. Thin adapters around system APIs; no business logic.
-    App/             Entry point, lifecycle, LSUIElement agent app
-    MenuBar/         Stackbar icon + divider status items, item discovery (CGWindowList)
+    App/             Entry point, lifecycle, LSUIElement agent app, --dump, debug window
+    MenuBar/         Icon + divider status items, item discovery (CGWindowList), watcher, moves (⌘-drag)
     Panel/           Dropdown NSPanel, icon capture, click forwarding
-    Settings/        SwiftUI settings window (drag items between Visible / Dropdown)
+    Settings/        SwiftUI settings window (drag items between Bar / Dropdown)
     Permissions/     Accessibility & Screen Recording checks, onboarding
 Tests/
   StackbarCoreTests/
+    Fixtures/        Real DiagnosticsSnapshot dumps from the user's Macs (never hand-edited)
 Resources/           Info.plist, entitlements, app icon
-scripts/             build-app.sh (bundle + sign), run, release helpers
+scripts/             build-app.sh (bundle + sign), make-dev-cert.sh, changelog-notes.sh
+.github/workflows/   ci.yml (Linux test + macOS build on push/PR), release.yml (tag → GitHub Release)
 ```
 
 Rule of thumb: if it can be expressed without AppKit, it belongs in `StackbarCore` (where it's
-testable everywhere). The app layer talks to Core through protocols so system APIs can be faked.
+testable everywhere). The app layer talks to Core through protocols (enumerate items, capture an
+item image, trigger an item, move an item) so system APIs can be faked in tests. Every adapter
+can report its state into `DiagnosticsSnapshot`.
 
 ## Milestones
 
-**M0 — Foundation**
-- `Package.swift` (Core library, App executable, Core tests), `swift test` green in container
-- `scripts/build-app.sh`: bundle `Stackbar.app` (Info.plist, `LSUIElement`), codesign; `make run` on host
-- Stable local signing identity (self-signed "Stackbar Dev" cert) so macOS TCC permissions
-  survive rebuilds (ad-hoc signatures reset them every build)
-- GitHub Actions: Linux job (`swift test`) + macOS job (build app) on every push/PR
-- `make app` produces `build/Stackbar.app` with version from `VERSION` and build number from
-  commit count (the release workflow already depends on this). First release: `v0.1.0`
+Versions follow [RELEASING.md](RELEASING.md): M0 → 0.1.0 … M5 → 1.0.0. Every milestone ends
+with a **Done when** line; that line is the acceptance test and the input for planning the
+milestone.
+
+**M0 — Foundation (v0.1.0)**
+- `Package.swift`: `swift-tools-version: 6.2`, `platforms: [.macOS(.v26)]`, Core library, Core
+  tests, and the App executable declared only under `#if os(macOS)`
+- `Makefile`: `make test`, `make app`, `make run`, `make cert`; `SIGN_IDENTITY ?= Stackbar Dev`
+  with ad-hoc fallback when the identity is missing (CI)
+- `scripts/build-app.sh`: bundle `Stackbar.app` (Info.plist with `LSUIElement`, version from
+  `VERSION`, build number from commit count; the release workflow already depends on this),
+  codesign
+- Stable local signing identity (self-signed "Stackbar Dev" cert via `scripts/make-dev-cert.sh`
+  or documented Keychain Access steps) so macOS TCC permissions survive rebuilds (ad-hoc
+  signatures reset them every build)
+- GitHub Actions `ci.yml`: Linux job (`swift test`) + macOS job (`make app` on `macos-26`) on
+  every push/PR
 - App shows the Stackbar icon in the menu bar with a Quit menu
+- Fill in the Commands section of `CLAUDE.md`
+- Done when: `swift test` is green in the container and in CI, the macOS CI job builds the app,
+  and `make run` on the host shows the icon with a working Quit.
 
-**M1 — Discovery spike (biggest risk, do first)**
-- Enumerate all menu bar items with owner app, frame, window ID; detect which are under the notch
-- Debug window listing them live; verify on macOS 14 and 26
-- Confirm what works with/without Screen Recording permission
+**M1 — Feasibility spike (v0.2.0) — biggest risk, do first**
+A Debug menu (in every build) with a window listing all menu bar items live, plus a **diagnostics
+dump**: `Stackbar --dump` (and Debug → Copy diagnostics) prints a JSON `DiagnosticsSnapshot`
+(macOS version, Stackbar version, permission state, screen + notch geometry, every item with PID,
+bundle id, title, window id, frame, on-screen flag, layer). The user pastes dumps back into the
+dev session; they are committed unchanged as fixtures in `Tests/StackbarCoreTests/Fixtures/`
+and drive the Core tests. Dumps are redacted by default (Decisions → Fixtures). Run from
+Terminal, `--dump` may report Terminal's permissions instead of Stackbar's, so Debug → Copy
+diagnostics from the running app is the reference path (S7 confirms). This milestone is driven
+from the Mac: keep iterations small.
 
-**M2 — Hidden section**
-- Divider status item; collapse/expand pushes items left of it off-screen
-- Core: given items + screen/notch geometry → which items are actually visible
+Spike questions. Each answer is written into this plan (Decisions / How it works / Risks):
+- **S1 Capture**: can a window pushed off-screen by the divider be captured by window ID with
+  ScreenCaptureKit, and is the image current rather than stale? Decides Image refresh.
+- **S2 Click**: does AXPress on an item through `AXExtrasMenuBar` open its menu / popover like
+  a real click, for an NSMenu app and an NSPopover app? Where does the menu open if the item is
+  off-screen (expected: clamped to the screen edge, hence reveal first)? Decides step 4.
+- **S3 Move**: does a synthesized ⌘-drag (CGEvent mouse down with ⌘, dragged, mouse up) move an
+  item across the divider in both directions on macOS 26? Decides step 5 and M4.
+- **S4 Immovable items**: which items refuse to move (expected: Clock, Control Center, Siri)?
+- **S5 Notch**: do items clipped by the notch still appear in the window list, with what frame
+  and on-screen flag? Decides how Core computes `clipped`.
+- **S6 Displays**: with two displays, one window per item or one per display?
+- **S7 Permissions**: which window-list fields are missing without Screen Recording; what fails
+  without Accessibility?
+- **S8 Divider**: a status item with length 10 000 on the notched display hides everything left
+  of it and leaves the icon visible.
+- Verify on macOS 26 (the only supported OS). The no-notch fixture comes from the external display,
+  which S6 also needs.
+- Done when: S1–S8 have written answers, the fallbacks that apply are chosen, `--dump` works,
+  and at least two fixtures (notched display with clipped items; display without notch) are
+  committed and parsed by a Core test.
 
-**M3 — Dropdown panel**
-- `NSPanel` anchored under the Stackbar icon, shows captured images of hidden items
-- Click forwarding to the real item; panel closes on outside click / Esc
+**M2 — Collapse & divider (v0.3.0)**
+- Divider + icon status items; collapse/expand pushes dropdown items off-screen (uses S8)
+- Core: `MenuBarItem`, `ItemIdentity`, `Section`, geometry types; given items + screen/notch
+  geometry → which items are bar, dropdown, clipped; tested against the fixtures
+- Done when: toggling collapse on the host hides and reveals the items left of the divider,
+  and Core's classification matches every fixture.
 
-**M4 — Arrangement & persistence**
-- Settings window: two lists (Visible / Dropdown), drag to assign
-- Programmatic moves via synthesized ⌘-drag; layout persisted and re-applied on app relaunch
-- Permissions onboarding
+**M3 — Dropdown panel (v0.4.0)**
+- `NSPanel` anchored under the icon showing captured images of dropdown items (single row at
+  menu-bar size, wrapping to a grid; hover shows the app name)
+- Capture + refresh per the Image refresh decision; click forwarding lifecycle per step 4;
+  panel closes on outside click / Esc
+- Done when: clicking an icon in the panel opens that app's menu at its item's position, the
+  menu bar collapses again after the menu closes, and images reflect the current state per the
+  chosen policy.
 
-**M5 — Polish & release**
+**M4 — Arrangement & persistence (v0.5.0)**
+- Settings window: two lists (Bar / Dropdown), drag to assign; immovable items shown greyed out
+- Core: desired vs actual layout → ordered move list; persistence (`Codable` config in
+  Application Support); identity matching per the Decisions table
+- App: executes moves per step 5; watcher per step 6 re-applies the layout when apps relaunch
+- Permissions onboarding (Accessibility + Screen Recording); first-run state per Decisions
+- Done when: assigning an item in Settings moves it within a few seconds, the layout survives a
+  relaunch of Stackbar and of the other app, and a fresh install walks through both permissions.
+
+**M5 — Polish & release (v1.0.0)**
 - Launch at login (`SMAppService`), global hotkey, optional auto-collapse timer
-- Developer ID signing, notarization, DMG, GitHub Release workflow; update mechanism (TBD)
+- Release signing per the Distribution decision (Developer ID + notarization, or a stable
+  self-signed certificate), DMG, GitHub Release workflow; update mechanism (TBD)
+- Done when: the DMG from GitHub Releases opens on a clean Mac (without Gatekeeper warnings if
+  Developer ID was chosen; with exactly the one documented "Open Anyway" step otherwise),
+  permissions survive an update, and launch at login works.
 
 ## Risks / open questions
 
 - **Private-ish behaviour**: menu bar item windows and ⌘-drag moving are not public API
-  contracts; macOS updates can break them. M1 exists to de-risk this early.
-- **macOS 26 menu bar changes**: newer macOS versions add their own menu bar item controls in
-  System Settings; behaviour needs checking on 26 alongside 14.
-- **Item identity** across relaunches (same app, multiple items, items without titles).
-- **Multiple displays**: each display has its own menu bar; v1 targets the built-in/main display.
-- **Click forwarding UX**: menus must open in a sensible position, not off-screen.
-- **Apple Developer account** needed for notarized release (not needed for development).
+  contracts; macOS updates can break them. M1 exists to de-risk this early (S1–S8), with a
+  fallback chosen per question.
+- **Private APIs** (open, ask the user when it comes up): if S5–S7 show that public window-list
+  data isn't enough on macOS 26 (item ownership, titles), may Stackbar call private
+  CoreGraphics/SkyLight functions? They don't block Developer ID signing or notarization.
+- **macOS menu bar changes**: macOS 26 adds its own menu bar item controls in System Settings and
+  is the only OS Stackbar supports. Check every new major macOS before claiming support.
+- **Screen-capture re-consent alerts**: macOS 15+ periodically asks the user to re-approve apps
+  that capture the screen without the system picker. Stackbar will trigger them; onboarding
+  explains it. Evaluate in M5 whether capturing less often reduces them.
+- **Menu bar flash**: revealing items for capture, clicks and moves reflows the menu bar for a
+  moment. Accepted; keep the window as short as possible.
+- **Item identity** across relaunches: decided (bundle id + title, fallback ordinal); apps with
+  several untitled items remain best effort.
+- **Multiple displays**: each display has its own menu bar; v1 targets the built-in/main
+  display (S6 tells us what the window list shows).
+- **Click forwarding UX**: menus must open in a sensible position, not off-screen; hence
+  reveal first (S2).
+- **Toolchain drift**: container Swift 6.2 vs host Command Line Tools 26 vs CI Xcode 26.x. Pinned to
+  tools-version 6.2 and Swift 6.2 language features; raise when the container image moves up.
+- **Apple Developer account**: only needed if M5 picks Developer ID + notarization; never for
+  development.
