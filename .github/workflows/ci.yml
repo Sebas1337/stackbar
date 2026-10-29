@@ -1,0 +1,40 @@
+name: CI
+
+# Linux: StackbarCore builds and tests (the app target isn't in the manifest there).
+# macOS: Core tests plus the app, bundled and ad-hoc signed. The only compile check for
+# StackbarApp outside the host Mac.
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  macos:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # build number = commit count
+      - name: Toolchain
+        run: swift --version
+      - name: Test
+        run: swift test
+      - name: Build Stackbar.app
+        run: make app
+      - name: Check bundle
+        run: |
+          plutil -lint build/Stackbar.app/Contents/Info.plist
+          codesign -dv build/Stackbar.app
