@@ -6,6 +6,14 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The dropdown panel is a list: each item's image with its name next to it.
+- Items behind the notch now have a real image in the panel too.
+- Item images are captured once and kept, also across restarts, instead of on every open: the
+  panel opens without the menu bar flashing. Only new items are captured, and macOS's screen
+  recording indicator shows only for a new item behind the notch. Update Images in the panel
+  captures everything again.
+
 ## [0.4.0] - 2026-10-29
 
 ### Added

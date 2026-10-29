@@ -22,8 +22,13 @@ public protocol MenuBarDriver: AnyObject {
 /// captured). The images stay in the app; Core only learns which captures worked.
 @MainActor
 public protocol ItemCapturing: AnyObject {
+    /// True when items behind the notch (on the display, not shown) can be captured too: the
+    /// private capture can, ScreenCaptureKit can't (S10).
+    var capturesClippedItems: Bool { get }
     /// Returns the window ids that were captured.
     func capture(_ items: [MenuBarItem]) async -> Set<UInt32>
+    /// True when an image of the item is kept, from this launch or an earlier one.
+    func hasImage(of item: MenuBarItem) -> Bool
 }
 
 /// Triggers an item like a click (S2).
@@ -65,10 +70,23 @@ extension MenuBarDriver {
         polls: Int,
         intervalMilliseconds: Int
     ) async -> [WindowInfo]? {
+        await waitUntilSettled(windowIDs, polls: polls, intervalMilliseconds: intervalMilliseconds) {
+            RevealCheck.isRevealed(windowIDs, in: $0, screen: screen)
+        }
+    }
+
+    /// Polls the window list until `condition` holds with the same frames for `windowIDs` in two
+    /// reads in a row. Returns that window list, or nil after `polls` reads.
+    func waitUntilSettled(
+        _ windowIDs: Set<UInt32>,
+        polls: Int,
+        intervalMilliseconds: Int,
+        until condition: ([WindowInfo]) -> Bool
+    ) async -> [WindowInfo]? {
         var previous: [Rect]?
         for _ in 0..<polls {
             let windows = windows(minimumLayer: 1)
-            if RevealCheck.isRevealed(windowIDs, in: windows, screen: screen) {
+            if condition(windows) {
                 let frames = windows.filter { windowIDs.contains($0.windowID) }
                     .sorted { $0.windowID < $1.windowID }.map(\.frame)
                 if frames == previous { return windows }

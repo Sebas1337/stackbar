@@ -1,12 +1,11 @@
 import Foundation
-import Testing
 @testable import StackbarCore
 
 /// The notched MacBook Pro's menu bar from the m2 fixtures: collapsed and expanded are real
 /// dumps of the same items, so window ids match. Answers like the app's adapters would.
 @MainActor
 final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
-    let collapsedSnapshot: DiagnosticsSnapshot
+    var collapsedSnapshot: DiagnosticsSnapshot
     var expandedSnapshot: DiagnosticsSnapshot
 
     var isCollapsed: Bool
@@ -24,7 +23,12 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     var menuReads = 0
     private var remainingMenuReads = 0
 
+
+    var capturesClippedItems = false
     var captured: [[UInt32]] = []
+    var capturedWhileCollapsed: [Bool] = []
+    /// Items with a kept image (captured, or loaded from an earlier launch).
+    var imageIDs: Set<UInt32> = []
     /// Window ids whose capture fails.
     var failingCaptures: Set<UInt32> = []
 
@@ -65,10 +69,16 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     }
 
     func capture(_ items: [MenuBarItem]) async -> Set<UInt32> {
-        #expect(!isCollapsed, "captures happen while expanded")
         let ids = items.map(\.window.windowID)
         captured.append(ids)
-        return Set(ids).subtracting(failingCaptures)
+        capturedWhileCollapsed.append(isCollapsed)
+        let succeeded = Set(ids).subtracting(failingCaptures)
+        imageIDs.formUnion(succeeded)
+        return succeeded
+    }
+
+    func hasImage(of item: MenuBarItem) -> Bool {
+        imageIDs.contains(item.window.windowID)
     }
 
     func press(_ item: MenuBarItem) -> PressResult {

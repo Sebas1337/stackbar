@@ -2,8 +2,9 @@ import Foundation
 
 /// Clicking an item in the dropdown panel (docs/PLAN.md "How it works" step 4): expand → wait
 /// until the item is back in the menu bar → AXPress it (a synthesized click for apps without
-/// AXPress) → wait until its menu or popover closes → capture it while it is on-screen anyway →
-/// restore the collapsed state. Menus open at the item's real position, because it is there.
+/// AXPress) → wait until its menu or popover closes → restore the collapsed state. Menus open at
+/// the item's real position, because it is there. Nothing is captured: images are captured once
+/// (`DropdownRefresh`).
 @MainActor
 public struct ClickForwarding {
     public struct Report: Sendable, Equatable, CustomStringConvertible {
@@ -25,18 +26,17 @@ public struct ClickForwarding {
         public var outcome: Outcome
         public var windowID: UInt32
         public var press: PressResult?
-        /// The revealed item had no AX element, so the one from the panel's (collapsed) read was used.
-        public var usedPanelAX = false
         /// A synthesized click was used (AXPress unsupported).
         public var clicked = false
+        /// The revealed item had no AX element, so the one from the panel's (collapsed) read was used.
+        public var usedPanelAX = false
         /// The windows that opened: the item's menu or popover.
         public var opened: [UInt32] = []
-        public var recaptured = false
         public var isCollapsed: Bool
 
         public var description: String {
             "Click forwarding window \(windowID): \(outcome.rawValue), press \(press.map { "\($0)" } ?? "–"), "
-                + "clicked=\(clicked), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), recaptured=\(recaptured), collapsed=\(isCollapsed)"
+                + "clicked=\(clicked), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), collapsed=\(isCollapsed)"
         }
     }
 
@@ -54,13 +54,11 @@ public struct ClickForwarding {
 
     private let driver: any MenuBarDriver
     private let presser: any ItemPressing
-    private let capturer: any ItemCapturing
     private let timing: Timing
 
-    public init(driver: any MenuBarDriver, presser: any ItemPressing, capturer: any ItemCapturing, timing: Timing = Timing()) {
+    public init(driver: any MenuBarDriver, presser: any ItemPressing, timing: Timing = Timing()) {
         self.driver = driver
         self.presser = presser
-        self.capturer = capturer
         self.timing = timing
     }
 
@@ -114,24 +112,13 @@ public struct ClickForwarding {
         }
         report.opened = opened.map(\.windowID)
 
-        var outcome = Report.Outcome.nothingOpened
-        if !opened.isEmpty {
-            outcome = .timedOut
-            for _ in 0..<timing.closePolls {
-                await driver.sleep(milliseconds: timing.closeIntervalMilliseconds)
-                if !MenuWindows.isStillOpen(opened, in: driver.visibleWindows()) {
-                    outcome = .closed
-                    break
-                }
+        guard !opened.isEmpty else { return finish(.nothingOpened) }
+        for _ in 0..<timing.closePolls {
+            await driver.sleep(milliseconds: timing.closeIntervalMilliseconds)
+            if !MenuWindows.isStillOpen(opened, in: driver.visibleWindows()) {
+                return finish(.closed)
             }
         }
-
-        if let window = driver.windows(minimumLayer: 1).first(where: { $0.windowID == id }),
-           RevealCheck.isCapturable(window, screen: layout.screen) {
-            var current = target
-            current.window = window
-            report.recaptured = await capturer.capture([current]).contains(id)
-        }
-        return finish(outcome)
+        return finish(.timedOut)
     }
 }

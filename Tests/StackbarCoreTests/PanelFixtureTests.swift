@@ -20,17 +20,13 @@ struct PanelFixtureTests {
         #expect(!layout.items.contains { $0.window.layer != WindowInfo.statusWindowLayer })
     }
 
-    /// Grid and placement reproduce where the app actually put the panel.
+    /// Placement reproduces where the app actually put the panel (443 pt wide in M3).
     @Test func panelFrameMatchesTheRealPanel() throws {
         let snapshot = try FixtureTests.load(Self.name)
         let layout = try #require(MenuBarLayout.classify(snapshot))
         let panel = try #require(snapshot.windows.first { $0.windowID == Self.panelWindowID }).frame
-        let grid = DropdownGrid.layout(sizes: layout.dropdown.map { ($0.window.frame.width, $0.window.frame.height) })
-        #expect(grid.width == panel.width)
-        #expect(Set(grid.frames.map(\.y)).count == 2)
-
         let icon = try #require(layout.icon).frame
-        let frame = PanelPlacement.frame(width: grid.width, height: panel.height, icon: icon, screen: layout.screen)
+        let frame = PanelPlacement.frame(width: panel.width, height: panel.height, icon: icon, screen: layout.screen)
         #expect(abs(frame.x - panel.x) <= 1)
         #expect(frame.y == panel.y)
     }

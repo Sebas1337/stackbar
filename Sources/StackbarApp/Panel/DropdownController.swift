@@ -32,6 +32,7 @@ final class DropdownController {
         hostingView = NSHostingView(rootView: DropdownView(model: model))
         panel = DropdownPanel(content: hostingView)
         model.onSelect = { [weak self] item in self?.forward(item) }
+        model.onUpdate = { [weak self] in self?.updateImages() }
     }
 
     var isOpen: Bool { panel.isVisible }
@@ -51,9 +52,21 @@ final class DropdownController {
         place()
         panel.makeKeyAndOrderFront(nil)
         installMonitors()
+        refreshItems(force: false)
+    }
+
+    /// The panel's update button: capture every item again.
+    func updateImages() {
+        refreshItems(force: true)
+    }
+
+    /// Finds the dropdown items and, when needed or `force`d, captures them (`DropdownRefresh`).
+    private func refreshItems(force: Bool) {
         enqueue { [weak self] in
             guard let self else { return }
-            let report = await refresh.run { [weak self] items in self?.show(items) }
+            model.isUpdating = true
+            defer { model.isUpdating = false }
+            let report = await refresh.run(force: force) { [weak self] items in self?.show(items) }
             if report.outcome == .noLayout {
                 // Last time's items may be gone; don't offer them.
                 show([])
@@ -89,8 +102,7 @@ final class DropdownController {
         close()
         enqueue { [weak self] in
             guard let self else { return }
-            let report = await ClickForwarding(driver: menuBar, presser: presser, capturer: capturer).run(item)
-            if report.recaptured { show(model.items.map(\.menuBarItem)) }
+            let report = await ClickForwarding(driver: menuBar, presser: presser).run(item)
             log(report.description)
         }
     }
@@ -106,21 +118,17 @@ final class DropdownController {
     // MARK: Showing items
 
     private func show(_ items: [MenuBarItem]) {
-        let grid = DropdownGrid.layout(sizes: items.map { ($0.window.frame.width, $0.window.frame.height) })
-        model.items = zip(items, grid.frames).map { item, frame in
+        model.items = items.map { item in
             let app = item.ax.flatMap { NSRunningApplication(processIdentifier: $0.pid) }
+            let size = CGSize(width: item.window.frame.width, height: item.window.frame.height)
             return DropdownModel.Item(
                 menuBarItem: item,
-                frame: frame,
-                image: capturer.images[item.window.windowID].map {
-                    NSImage(cgImage: $0, size: NSSize(width: frame.width, height: frame.height))
-                },
+                size: size,
+                image: capturer.image(for: item).map { NSImage(cgImage: $0, size: size) },
                 appIcon: app?.icon,
                 name: Self.name(of: item, appName: app?.localizedName)
             )
         }
-        model.gridWidth = grid.width
-        model.gridHeight = grid.height
         if isOpen { place() }
     }
 

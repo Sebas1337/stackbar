@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **M3 done (v0.4.0, 2026-10-29). Next: M4 (arrangement & persistence).**
+Status: **M3b done (v0.5.0, 2026-10-29). Next: M4 (arrangement & persistence).**
 
 ## Goal
 
@@ -32,9 +32,10 @@ dropdown**.
 | Classification | Decided in M2 (`MenuBarLayout`): items are the active display's status windows (≤ 50 pt high) that are AX-joined or sit in its menu bar band; copies on other displays and status-level panels are left out. An item whose center is left of the divider's right edge is **dropdown**, the rest **bar** (no divider: all bar). Split by order, not the divider's width, so collapsed classifies the same way. **Clipped** = off-screen and overlapping the notch, independent of the section. Without Accessibility, collapsed dropdown items can't be found and identities are unknown |
 | Re-apply trigger | Poll the window list every 2 s, plus immediately on `NSWorkspace` app launch/terminate and on screen-parameter changes. Tune in M4 |
 | First run | Starts expanded with nothing assigned to the dropdown, on every launch. Until M4 collapsing is available right away (opening the panel collapses; Show All Items in the icon's menu expands, so the user can ⌘-drag items across the divider by hand). From M4 on, collapsing is enabled only after onboarding (permissions + how to assign items) has finished |
-| Image refresh | Decided by S1: ScreenCaptureKit can't capture a window pushed off-screen by the divider ("Failed to start stream due to audio/video capture failure"); on-screen capture by window id works. So: reveal → capture → collapse on panel open, cached between opens. Decided in M3 (`DropdownRefresh`): the panel opens at once with the cached images (the app's icon for items never captured), then reveals, captures and collapses; images younger than 10 s are reused, so reopening right away doesn't flash the bar again. Dropdown items behind the notch (clipped even while expanded) can't be captured: they keep their last image or show the app's icon |
-| Click forwarding | Decided by S2: expand → AXPress on the item's AX element → wait for its menu/popover to close → collapse. AXPress opens menus (NSMenu, Electron) and popovers like a real click; collapsed, the menu opens off-screen or clamped, so always expand first. Some apps return `kAXErrorCannotComplete` (-25204) while their menu still opens (ignore it); apps returning `kAXErrorActionUnsupported` (-25206) get a synthesized `CGEvent` click at the item's frame instead. Detect "opened" as a window of that app becoming visible (apps such as Stats reuse their panel window). Decided in M3 (`ClickForwarding`): "closed" = those windows left the window list or went off-screen, polled every 200 ms with a 60 s backstop; nothing opened within 1.5 s → collapse. No mouse-down monitor: a click outside closes menus and popovers, which the poll sees. AXPress uses the same 0.25 s AX messaging timeout as discovery. The item is captured again after its menu closes, while it is on-screen anyway |
-| Moving items | Decided by S3/S4: a synthesized ⌘-drag (mouse down with ⌘ at the item center, 20 drag steps, mouse up, cursor restored) moves items across the divider in both directions, Apple and third-party. Immovable: Clock and Control Center (verified); Siri assumed (not in the test bar) |
+| Image refresh | Decided by S1: ScreenCaptureKit can't capture a window pushed off-screen by the divider ("Failed to start stream due to audio/video capture failure"); on-screen capture by window id works. So: reveal → capture → collapse on panel open, cached between opens. Decided in M3 (`DropdownRefresh`): the panel opens at once with the cached images (the app's icon for items never captured), then reveals, captures and collapses; (M3: images younger than 10 s were reused; replaced in M3b, below.) Dropdown items behind the notch (clipped even while expanded) can't be captured: they keep their last image or show the app's icon. M3b: those are captured with the private capture (see Private APIs) while revealed. Every capture reveals, i.e. flashes the bar; the **private** capture also shows macOS's "Screen Recording is in use" for a while (fixture `m3b-mbp16-macos26-capture.json`), ScreenCaptureKit screenshots don't (checked by the user with Debug → Use Private Capture off). So (user, 2026-10-29) images are captured **once** and kept on disk per item identity (Caches, file names hashed): a refresh only runs for dropdown items without an image, never after a click, and then captures on-screen items with ScreenCaptureKit and items behind the notch with the private capture only when they have no image yet. The panel's Update Images captures everything again |
+| Click forwarding | Decided by S2: expand → AXPress on the item's AX element → wait for its menu/popover to close → collapse. AXPress opens menus (NSMenu, Electron) and popovers like a real click; collapsed, the menu opens off-screen or clamped, so always expand first. Some apps return `kAXErrorCannotComplete` (-25204) while their menu still opens (ignore it); apps returning `kAXErrorActionUnsupported` (-25206) get a synthesized `CGEvent` click at the item's frame instead. Detect "opened" as a window of that app becoming visible (apps such as Stats reuse their panel window). Decided in M3 (`ClickForwarding`): "closed" = those windows left the window list or went off-screen, polled every 200 ms with a 60 s backstop; nothing opened within 1.5 s → collapse. No mouse-down monitor: a click outside closes menus and popovers, which the poll sees. AXPress uses the same 0.25 s AX messaging timeout as discovery. M3 captured the item again after its menu closed; M3b dropped that (images are captured once) |
+| Private APIs | Decided 2026-10-29 (user): one private API, for capture only: SkyLight's `CGSHWCaptureWindowList`, loaded with `dlsym` (no link dependency), ScreenCaptureKit as fallback. S10 (M3b): it captures items behind the notch (on the display, just not shown), but not items the collapsed divider pushed off the display (no image). Ask before adding any other |
+| Moving items | Decided by S3/S4: a synthesized ⌘-drag (mouse down with ⌘ at the item center, 20 drag steps, mouse up, cursor restored) moves items across the divider in both directions, Apple and third-party. Immovable: Clock and Control Center (verified); Siri assumed (not in the test bar). S9 (M3b): a window-targeted ⌘-drag (session event tap, window-under-pointer fields set to the divider's window, drop point just left of its off-screen left edge) moves a bar item left of the **collapsed** divider; the other way, an off-screen item into the bar, fails (HID and session taps, drag and bare down/up) |
 | Displays | Decided by S6: every display's menu bar has its own window per item. The real items (original window ids, AX frames) live on the active display (`NSScreen.main`); other displays show copies with new window ids, titled with the owning app's bundle id, without AX frames. v1 works on the active display's items |
 | Accepted trade-offs | The menu bar reflows briefly whenever dropdown items are revealed (capture, click forwarding, moves). macOS 15+ shows periodic screen-capture re-consent alerts for Stackbar; onboarding explains them |
 
@@ -84,9 +85,8 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
 3. **Show in dropdown**: images of dropdown items are captured per window ID with
    ScreenCaptureKit (`SCContentFilter(desktopIndependentWindow:)` + `SCScreenshotManager`) and
    rendered in an `NSPanel` under the icon. Off-screen windows can't be captured (S1), so on
-   panel open: reveal → capture → collapse, cached between opens (`DropdownRefresh`). One row at
-   menu bar size up to 480 pt, then wrapping (`DropdownGrid`); hovering names the item in the
-   panel's footer; Esc, a click elsewhere or losing key focus closes the panel. The panel takes
+   panel open: reveal → capture → collapse, cached between opens (`DropdownRefresh`). One row per
+   item, like a menu: its image at menu bar size and its name; hovering highlights the row; Esc, a click elsewhere or losing key focus closes the panel. The panel takes
    the menu bar's appearance, which the captured images were drawn for.
 4. **Click forwarding**: clicking an icon in the panel runs: expand → re-enumerate to get the
    item's on-screen frame → trigger the item (AXPress through the app's `AXExtrasMenuBar`, S2;
@@ -94,7 +94,10 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    that return `kAXErrorActionUnsupported`) → stay expanded until the item's menu or popover closes →
    collapse (`ClickForwarding`). "Closed" means the windows the app opened have left the window
    list or gone off-screen, with a 60 s timeout as backstop. Menus therefore open at the item's real
-   position in the bar.
+   position in the bar. M3b tried "show the item alone" (⌘-drag it right of the divider,
+   collapse, press, drag it back left of the collapsed divider, S9) and dropped it: the
+   synthesized ⌘-drags move the cursor visibly, which the user rejected (2026-10-29). Clicks
+   expand the whole bar; M4 builds its moves anew on `ItemMover` (Debug).
 5. **Arrange**: moving an item between bar and dropdown is a synthesized ⌘-drag of the real
    item across the divider. Moves run only while expanded, because a ⌘-drag can't reach an
    off-screen item: expand → for each move: ⌘-drag, re-enumerate, verify, retry once →
@@ -230,7 +233,26 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   (behind the notch) got `itemNotFound` (no AX match after reveal); fixed with the panel's AX
   element as fallback. `DropdownGrid` + `PanelPlacement` reproduce the real panel frame.
 
-**M4 — Arrangement & persistence (v0.5.0)**
+**M3b — Dropdown polish (v0.5.0)**
+Wishes after using M3 (2026-10-29): images for items behind the notch, the panel as a list, and
+only the clicked item appearing in the bar instead of every dropdown item.
+- Spike S9 (move an off-screen item with a window-targeted ⌘-drag) and S10 (private capture);
+  answers in Decisions → Private APIs / Moving items
+- Panel rows: image + name
+- Refresh captures revealed items behind the notch with the private capture
+- Temporary show (only the clicked item in view): dropped. Moving an off-screen item is
+  impossible (S9), so it needs a visible ⌘-drag, and the moving cursor was rejected
+  (2026-10-29). Clicks keep M3's click forwarding
+- Done when: every dropdown item has an image (also behind the notch; captured once, Update
+  Images refreshes them) and the panel is a list.
+- **Result (2026-10-29)**: done. Verified on the host: list rows, images for all 15 dropdown
+  items, the 5 behind the notch through the private capture. Fixtures
+  `m3b-mbp16-macos26-{spike,capture,screencapturekit}.json`: S9/S10 answers, the private capture
+  shows "Screen Recording is in use" (ScreenCaptureKit doesn't), so images are captured once
+  and kept on disk. Open: window 64 (an app answering AXPress with -25206) never opened
+  anything after the synthesized click (`nothingOpened`, 4×); check in M4.
+
+**M4 — Arrangement & persistence (v0.6.0)**
 - Settings window: two lists (Bar / Dropdown), drag to assign; immovable items shown greyed out
 - Core: desired vs actual layout → ordered move list; persistence (`Codable` config in
   Application Support); identity matching per the Decisions table
@@ -252,9 +274,9 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
 - **Private-ish behaviour**: menu bar item windows and ⌘-drag moving are not public API
   contracts; macOS updates can break them. M1 exists to de-risk this early (S1–S8), with a
   fallback chosen per question.
-- **Private APIs**: not needed after M1. Window list + Accessibility identify items with public
-  API. The only gap is capturing off-screen items (S1), covered by reveal → capture → collapse.
-  Ask the user before ever adding one.
+- **Private APIs**: one, for capture (Decisions → Private APIs), loaded with `dlsym` and with
+  ScreenCaptureKit as fallback, so a macOS update that removes it costs images behind the notch,
+  nothing else. Everything else stays public API. Ask the user before ever adding one.
 - **Ownership depends on Accessibility**: without it, items can't be attributed to apps (S7);
   onboarding must get Accessibility before anything else. The AX/window frame join is a
   heuristic (content-frame center inside the slot); a Control Center whole-slot element was seen

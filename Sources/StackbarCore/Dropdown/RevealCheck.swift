@@ -11,9 +11,11 @@ public enum RevealCheck {
         windows.filter { windowIDs.contains($0.windowID) }.allSatisfy { isOnDisplay($0, screen: screen) }
     }
 
-    /// In place and visible: the only state in which ScreenCaptureKit can capture it (S1).
-    public static func isCapturable(_ window: WindowInfo, screen: ScreenInfo) -> Bool {
-        window.isOnScreen && isOnDisplay(window, screen: screen)
+    /// In place and visible: the only state in which ScreenCaptureKit can capture it (S1). With
+    /// `includingClipped`, in place is enough: the private capture also takes items behind the
+    /// notch, but not items off the display (S10).
+    public static func isCapturable(_ window: WindowInfo, screen: ScreenInfo, includingClipped: Bool = false) -> Bool {
+        (window.isOnScreen || includingClipped) && isOnDisplay(window, screen: screen)
     }
 
     static func isOnDisplay(_ window: WindowInfo, screen: ScreenInfo) -> Bool {

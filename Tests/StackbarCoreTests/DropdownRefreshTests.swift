@@ -21,6 +21,7 @@ struct DropdownRefreshTests {
         #expect(bar.collapseCalls == [false, true])
         #expect(bar.captured.count == 1)
         #expect(Set(bar.captured[0]) == Self.capturable)
+        #expect(bar.capturedWhileCollapsed == [false])
         #expect(report.captured == Self.capturable)
         #expect(Set(report.notCapturable) == Set(Self.dropdown).subtracting(Self.capturable))
         #expect(report.isCollapsed)
@@ -35,19 +36,94 @@ struct DropdownRefreshTests {
         #expect(report.isCollapsed)
     }
 
-    @Test func recentImagesAreReused() async throws {
+    /// Captured once: again only for new dropdown items or when forced (the update button).
+    @Test func capturesOnceUntilNewItemsOrForced() async throws {
         let bar = try FakeMenuBar(collapsed: true)
         let refresh = DropdownRefresh(driver: bar, capturer: bar)
-        let start = Date(timeIntervalSince1970: 1_800_000_000)
-        _ = await refresh.run(now: start)
-        let again = await refresh.run(now: start.addingTimeInterval(5))
-        #expect(again.outcome == .upToDate)
-        #expect(bar.captured.count == 1)
-        #expect(again.isCollapsed)
+        let sound: UInt32 = 18
+        let collapsed = bar.collapsedSnapshot
+        let expanded = bar.expandedSnapshot
+        bar.collapsedSnapshot.windows.removeAll { $0.windowID == sound }
+        bar.expandedSnapshot.windows.removeAll { $0.windowID == sound }
 
-        let later = await refresh.run(now: start.addingTimeInterval(DropdownRefresh.maximumImageAge + 1))
-        #expect(later.outcome == .refreshed)
+        #expect(await refresh.run().outcome == .refreshed)
+        let again = await refresh.run()
+        #expect(again.outcome == .upToDate)
+        #expect(again.isCollapsed)
+        #expect(bar.captured.count == 1)
+
+        // A new item in the dropdown: capture again.
+        bar.collapsedSnapshot = collapsed
+        bar.expandedSnapshot = expanded
+        #expect(await refresh.run().outcome == .refreshed)
         #expect(bar.captured.count == 2)
+
+        // An item leaving the dropdown needs no capture.
+        bar.collapsedSnapshot.windows.removeAll { $0.windowID == sound }
+        bar.expandedSnapshot.windows.removeAll { $0.windowID == sound }
+        #expect(await refresh.run().outcome == .upToDate)
+
+        #expect(await refresh.run(force: true).outcome == .refreshed)
+        #expect(bar.captured.count == 3)
+    }
+
+    /// Items behind the notch go through the private capture (with its indicator) only while they
+    /// have no image, or when forced; on-screen items are captured whenever the bar is revealed.
+    @Test func clippedItemsAreCapturedOnceOrWhenForced() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        bar.capturesClippedItems = true
+        let refresh = DropdownRefresh(driver: bar, capturer: bar)
+        let sound: UInt32 = 18
+        let collapsed = bar.collapsedSnapshot
+        let expanded = bar.expandedSnapshot
+        bar.collapsedSnapshot.windows.removeAll { $0.windowID == sound }
+        bar.expandedSnapshot.windows.removeAll { $0.windowID == sound }
+
+        _ = await refresh.run()
+        #expect(Set(bar.captured[0]) == Set(Self.dropdown).subtracting([sound]))
+
+        // A new item: revealed again, on-screen items captured, the clipped ones kept.
+        bar.collapsedSnapshot = collapsed
+        bar.expandedSnapshot = expanded
+        let added = await refresh.run()
+        #expect(added.outcome == .refreshed)
+        #expect(Set(bar.captured[1]) == Self.capturable)
+
+        _ = await refresh.run(force: true)
+        #expect(Set(bar.captured[2]) == Set(Self.dropdown))
+    }
+
+    /// Switching the private capture on retries the items behind the notch without an image.
+    @Test func enablingThePrivateCaptureRetriesClippedItems() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let refresh = DropdownRefresh(driver: bar, capturer: bar)
+        _ = await refresh.run()
+        #expect(await refresh.run().outcome == .upToDate)
+
+        bar.capturesClippedItems = true
+        let report = await refresh.run()
+        #expect(report.outcome == .refreshed)
+        #expect(report.captured == Set(Self.dropdown))
+    }
+
+    /// Images kept from an earlier launch: opening the panel doesn't reveal anything.
+    @Test func keptImagesNeedNoReveal() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        bar.imageIDs = Set(Self.dropdown)
+        let report = await DropdownRefresh(driver: bar, capturer: bar).run()
+        #expect(report.outcome == .upToDate)
+        #expect(!bar.collapseCalls.contains(false))
+        #expect(bar.captured.isEmpty)
+    }
+
+    /// Without the private capture the clipped items can't get an image; they don't make every
+    /// open flash again.
+    @Test func uncapturableItemsDontRevealAgain() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let refresh = DropdownRefresh(driver: bar, capturer: bar)
+        _ = await refresh.run()
+        #expect(await refresh.run().outcome == .upToDate)
+        #expect(bar.collapseCalls.filter { !$0 }.count == 1)
     }
 
     @Test func failedCapturesAreReported() async throws {
@@ -111,24 +187,6 @@ struct RevealCheckTests {
         let wide = PanelPlacement.frame(width: 700, height: 45, icon: icon, screen: expanded.screen)
         #expect(wide.maxX == expanded.screen.frame.maxX - PanelPlacement.margin)
         #expect(wide.minX >= expanded.screen.frame.minX)
-    }
-
-    @Test func gridWrapsAtTheMaximumWidth() {
-        let one = DropdownGrid.layout(sizes: [(38, 33), (45, 33)])
-        #expect(one.frames == [Rect(x: 6, y: 6, width: 38, height: 33), Rect(x: 46, y: 6, width: 45, height: 33)])
-        #expect(one.width == 97)
-        #expect(one.height == 45)
-
-        let wrapped = DropdownGrid.layout(sizes: Array(repeating: (40, 33), count: 5), maximumWidth: 140)
-        // 6 + 40 + 2 + 40 + 2 + 40 + 6 = 136 fits; a fourth item wraps.
-        #expect(wrapped.frames.map(\.y) == [6, 6, 6, 41, 41])
-        #expect(wrapped.frames[3].x == 6)
-        #expect(wrapped.width == 136)
-        #expect(wrapped.height == 80)
-
-        #expect(DropdownGrid.layout(sizes: []).frames.isEmpty)
-        // An item wider than the maximum still gets its own row.
-        #expect(DropdownGrid.layout(sizes: [(500, 33)], maximumWidth: 140).width == 512)
     }
 
     @Test func menuWindowsOpenAndClose() {

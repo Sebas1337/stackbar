@@ -206,6 +206,51 @@ final class ItemsModel {
         }
     }
 
+    // MARK: S9 / S10 (M3b)
+
+    private func dividerWindow() -> WindowInfo? {
+        let windows = WindowListReader.windows()
+        guard let id = debug.menuBar.divider.windowID(in: windows) else { return nil }
+        return windows.first { $0.windowID == id }
+    }
+
+    /// S9a: moves the selected (collapsed, off-screen) dropdown item just right of the divider,
+    /// into the bar, without expanding.
+    func temporarilyShow() {
+        guard let row = selectedRow else { return }
+        guard let divider = dividerWindow() else {
+            status = "Divider not found in the window list."
+            return
+        }
+        let target = CGPoint(x: divider.frame.maxX + 4, y: divider.frame.midY)
+        run {
+            await SpikeActions.targetedDrag(row.window, to: target, targetWindowID: row.window.windowID, label: "dropdown→bar (collapsed=\(self.isCollapsed))")
+        }
+    }
+
+    /// S9b: moves the selected bar item back left of the divider, whose left edge is off-screen
+    /// while collapsed.
+    func moveBack() {
+        guard let row = selectedRow else { return }
+        guard let divider = dividerWindow() else {
+            status = "Divider not found in the window list."
+            return
+        }
+        let target = CGPoint(x: divider.frame.minX - 4, y: divider.frame.midY)
+        run {
+            await SpikeActions.targetedDrag(row.window, to: target, targetWindowID: divider.windowID, label: "bar→dropdown (collapsed=\(self.isCollapsed))")
+        }
+    }
+
+    /// S10: private capture of the selected item where it is (off-screen, behind the notch).
+    func privateCapture() {
+        guard let row = selectedRow else { return }
+        let window = WindowListReader.windows().first { $0.windowID == row.window.windowID } ?? row.window
+        let result = SpikeActions.privateCapture(window: window, label: isCollapsed ? "collapsed" : "expanded")
+        if let file = result.file { NSWorkspace.shared.open(file) }
+        status = result.message
+    }
+
     // MARK: Permissions
 
     func requestAccessibility() {
@@ -276,6 +321,17 @@ struct ItemsView: View {
                     Button("AXPress while collapsed (S2)") { model.press(collapsed: true) }
                     Divider().frame(height: 16)
                     Button("⌘-drag across divider (S3/S4)") { model.dragAcrossDivider() }
+                    Spacer()
+                }
+                .disabled(model.selection == nil || model.busy)
+            }
+
+            GroupBox("M3b spike (selected item)") {
+                HStack {
+                    Button("Move into bar, collapsed (S9)") { model.temporarilyShow() }
+                    Button("Move back left of divider (S9)") { model.moveBack() }
+                    Divider().frame(height: 16)
+                    Button("Private capture (S10)") { model.privateCapture() }
                     Spacer()
                 }
                 .disabled(model.selection == nil || model.busy)

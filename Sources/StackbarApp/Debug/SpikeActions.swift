@@ -36,7 +36,7 @@ enum SpikeActions {
     }
 
     /// True when every sampled pixel is fully transparent (a typical result for off-screen captures).
-    private static func isBlank(_ image: CGImage) -> Bool {
+    static func isBlank(_ image: CGImage) -> Bool {
         guard let data = image.dataProvider?.data, let bytes = CFDataGetBytePtr(data),
               image.bitsPerPixel == 32
         else { return false }
@@ -115,7 +115,7 @@ enum SpikeActions {
     }
 
     @discardableResult
-    private static func log(_ message: String, _ file: URL?) -> (message: String, file: URL?) {
+    static func log(_ message: String, _ file: URL?) -> (message: String, file: URL?) {
         SpikeLog.shared.add(message)
         return (message, file)
     }
