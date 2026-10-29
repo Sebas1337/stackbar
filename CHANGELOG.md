@@ -6,6 +6,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-29
+
 ### Changed
 - The dropdown panel is a list: each item's image with its name next to it.
 - Items behind the notch now have a real image in the panel too.
