@@ -126,7 +126,7 @@ Tests/
     Fixtures/        Real DiagnosticsSnapshot dumps from the user's Macs (never hand-edited)
 Resources/           Info.plist, entitlements, app icon
 scripts/             build-app.sh (bundle + sign), make-dev-cert.sh, changelog-notes.sh
-.github/workflows/   ci.yml (Linux test + macOS build on push/PR), release.yml (tag → GitHub Release)
+.github/workflows/   ci.yml (Linux test + macOS build on branch pushes; docs-only commits skip it), release.yml (tag → test, build, GitHub Release)
 ```
 
 Rule of thumb: if it can be expressed without AppKit, it belongs in `StackbarCore` (where it's
