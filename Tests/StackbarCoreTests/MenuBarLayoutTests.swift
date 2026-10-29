@@ -222,3 +222,58 @@ struct StackbarItemsInfoTests {
         #expect(!StackbarItemsInfo(iconWindowID: 1, dividerWindowID: nil, dividerLength: nil).isCollapsed)
     }
 }
+
+/// The same notched menu bar expanded and collapsed (M2 Done-when), one session.
+struct CollapseFixtureTests {
+    static let dropdownWindowIDs: [UInt32] = [5148, 2748, 78, 29, 16, 1127, 93, 31, 5141, 4786, 18]
+    static let barWindowIDs: [UInt32] = [64, 4777, 92, 19, 4787, 5142, 5143, 20, 17]
+
+    let expanded: MenuBarLayout
+    let collapsed: MenuBarLayout
+
+    init() throws {
+        expanded = try MenuBarLayoutFixtureTests.layout("m2-mbp16-macos26-expanded.json")
+        collapsed = try MenuBarLayoutFixtureTests.layout("m2-mbp16-macos26-collapsed.json")
+    }
+
+    @Test func expandedSplitsAtTheDivider() {
+        #expect(!expanded.isCollapsed)
+        #expect(expanded.canCollapse)
+        #expect(expanded.dropdown.map(\.window.windowID) == Self.dropdownWindowIDs)
+        #expect(expanded.bar.map(\.window.windowID) == Self.barWindowIDs)
+        #expect(expanded.clipped.map(\.window.windowID) == [5148, 2748, 78, 29, 16])
+        #expect(expanded.clipped.allSatisfy { $0.section == .dropdown })
+    }
+
+    /// Collapsed, every dropdown item is off-screen left of the divider; nothing is clipped.
+    @Test func collapsedPushesDropdownItemsOffScreen() {
+        #expect(collapsed.isCollapsed)
+        // Same items, but macOS reordered two neighbours: 1127 moved left of Bluetooth (16).
+        #expect(Set(collapsed.dropdown.map(\.window.windowID)) == Set(Self.dropdownWindowIDs))
+        #expect(collapsed.dropdown.map(\.window.windowID) == [5148, 2748, 78, 29, 1127, 16, 93, 31, 5141, 4786, 18])
+        #expect(collapsed.bar.map(\.window.windowID) == Self.barWindowIDs)
+        #expect(collapsed.clipped.isEmpty)
+        #expect(collapsed.dropdown.allSatisfy { !$0.window.isOnScreen && $0.window.frame.maxX <= collapsed.screen.frame.minX })
+        #expect(collapsed.bar.allSatisfy { $0.window.isOnScreen })
+    }
+
+    /// The window list clips the 10 000 pt divider to about 5 000 pt (x −3775, width 5016) and
+    /// marks it off-screen; its right edge stays where it was, and its window id doesn't change.
+    @Test func collapsedDividerKeepsItsRightEdgeAndWindowID() throws {
+        let before = try #require(expanded.divider)
+        let after = try #require(collapsed.divider)
+        #expect(after.windowID == before.windowID)
+        #expect(after.frame.maxX == before.frame.maxX)
+        #expect(after.frame.width < StackbarItemsInfo.collapsedDividerLength)
+        #expect(!after.isOnScreen)
+        #expect(collapsed.icon?.frame == expanded.icon?.frame)
+    }
+
+    /// Bar items don't move when collapsing, and identities survive the move off-screen (the
+    /// dropdown order may change, see above).
+    @Test func barStaysAndIdentitiesSurvive() {
+        #expect(collapsed.bar.map(\.window.frame) == expanded.bar.map(\.window.frame))
+        #expect(Set(collapsed.items.compactMap(\.identity)) == Set(expanded.items.compactMap(\.identity)))
+        #expect(collapsed.bar.map(\.identity) == expanded.bar.map(\.identity))
+    }
+}

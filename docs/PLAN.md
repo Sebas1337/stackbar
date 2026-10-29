@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **M1 done (v0.2.0, 2026-10-29). Next: M2 (collapse & divider).**
+Status: **M2 done (v0.3.0, 2026-10-29). Next: M3 (dropdown panel).**
 
 ## Goal
 
@@ -203,6 +203,12 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   geometry → which items are bar, dropdown, clipped; tested against the fixtures
 - Done when: toggling collapse on the host hides and reveals the items left of the divider,
   and Core's classification matches every fixture.
+- **Result (2026-10-29)**: done. Verified on the host: the icon click collapses and expands.
+  Collapsed (fixture `m2-mbp16-macos26-collapsed.json`): dropdown item windows move to
+  x ≈ −4230…−3775, off-screen; the window list clips the divider to x = −3775, 5016 pt wide,
+  off-screen, with its right edge and window id unchanged; bar items and the icon don't move.
+  macOS may reorder dropdown items when collapsing (two neighbours swapped). `MenuBarLayout`
+  classifies all six fixtures.
 
 **M3 — Dropdown panel (v0.4.0)**
 - `NSPanel` anchored under the icon showing captured images of dropdown items (single row at
@@ -252,7 +258,9 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
 - **Menu bar flash**: revealing items for capture, clicks and moves reflows the menu bar for a
   moment. Accepted; keep the window as short as possible.
 - **Item identity** across relaunches: decided (bundle id + title, fallback ordinal); apps with
-  several untitled items remain best effort.
+  several untitled items remain best effort. The left-to-right order of dropdown items is not stable
+  (collapsing swapped two neighbours, m2 fixtures), so ordinals and any per-section order must
+  not be trusted across collapse; M4 matches by title first.
 - **Multiple displays**: each display has its own menu bar with its own item windows; v1 targets
   the active display (S6).
 - **Click forwarding UX**: menus must open in a sensible position, not off-screen; hence
