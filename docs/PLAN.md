@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **reviewed 2026-10-29, ready to build. Next: M0.** Nothing has been built yet.
+Status: **reviewed 2026-10-29. M0 (foundation) in progress.**
 
 ## Goal
 
@@ -17,14 +17,17 @@ dropdown**.
 | Scope | Dropdown panel from day one (not just a show/hide separator) |
 | Language / UI | Swift 6 (strict concurrency), AppKit for menu bar/panel plumbing, SwiftUI for content & settings |
 | Build | SwiftPM only (no Xcode project) + script that bundles `Stackbar.app`; works with Command Line Tools |
-| Toolchain | `swift-tools-version: 6.0`, deployment target macOS 14. Container: Swift 6.2. Host: Xcode / Command Line Tools 16 or newer. CI: `macos-15` runner (same as `release.yml`). No language or SDK features newer than Swift 6.0 / macOS 14 SDK until host and CI are confirmed newer |
+| Toolchain | `swift-tools-version: 6.2` (needed for `.macOS(.v26)`), deployment target macOS 26. Swift 6.2 is the floor everywhere: container Swift 6.2, host Command Line Tools 26 (Swift 6.2 or newer; Xcode not required), CI `macos-26` runner with Xcode 26 (same as `release.yml`). No language features newer than Swift 6.2, because the container is the lowest toolchain |
 | Package layout | `StackbarApp` is declared in `Package.swift` only under `#if os(macOS)`. `swift build` builds every target in the package, so this is what keeps `swift build` / `swift test` green on Linux. No `#if os(...)` inside app sources |
-| Minimum OS | macOS 14 Sonoma |
-| Distribution | Outside the Mac App Store (sandbox blocks the needed APIs). Developer ID signed + notarized, GitHub Releases |
+| Minimum OS | macOS 26 Tahoe (decided 2026-10-29: it is the only OS we can test on, so no untested code paths for 14/15) |
+| Distribution | Outside the Mac App Store (sandbox blocks the needed APIs), via GitHub Releases. Ad-hoc signed until M5. At M5 choose: Developer ID + notarization (paid account, no Gatekeeper warning) or a stable self-signed release certificate (free; users click "Open Anyway" once, permissions survive updates) |
 | Versioning | SemVer, `VERSION` file is the source of truth, tags `vX.Y.Z`, `CHANGELOG.md` (Keep a Changelog). One minor per milestone until 1.0. Tag push → GitHub Release. See [RELEASING.md](RELEASING.md) |
 | License | MIT |
 | Dependencies | None to start. Adding any package needs explicit approval |
 | Dev environment | Devcontainer with Claude Code (yolo mode, open network) for writing code + testing `StackbarCore`; app built/run on the macOS host; GitHub Actions macOS runner as compile check for the app target. The user is the eyes on the Mac: diagnostics dumps pasted back become test fixtures (see M1) |
+| Bundle identifier | `io.github.sebas1337.stackbar`. macOS ties granted permissions to it: never change it |
+| Test hardware | One Mac: 16" MacBook Pro (M1 Pro/Max, notched), macOS 26. Its external display gives the no-notch and two-display cases. Everything is verified on this machine and on the `macos-26` CI runner |
+| Fixtures | The repo is public, so dumps are redacted by the app by default and fixtures stay unedited app output. Kept: titles of `com.apple.*` items, bundle ids, PIDs, window ids, frames, layers, on-screen flags, screen/notch geometry, versions, permission state. Other titles become a keyed hash + length (key stored only on the Mac, stable across dumps). Never collected: computer name, user name, file paths, display serials. The dump records `"redacted": true`; `--dump --raw` is for local debugging and is never committed |
 | Item identity | Bundle identifier (via `NSRunningApplication` for the owner PID) + window title (`kCGWindowName`, present only with Screen Recording). Without a title: bundle identifier + ordinal among that app's items, left to right. Several untitled items from one app are best effort |
 | Re-apply trigger | Poll the window list every 2 s, plus immediately on `NSWorkspace` app launch/terminate and on screen-parameter changes. Tune in M4 |
 | First run | Starts expanded with nothing assigned to the dropdown. Collapsing is enabled only after onboarding (permissions + how to assign items) has finished |
@@ -123,7 +126,7 @@ with a **Done when** line; that line is the acceptance test and the input for pl
 milestone.
 
 **M0 — Foundation (v0.1.0)**
-- `Package.swift`: `swift-tools-version: 6.0`, `platforms: [.macOS(.v14)]`, Core library, Core
+- `Package.swift`: `swift-tools-version: 6.2`, `platforms: [.macOS(.v26)]`, Core library, Core
   tests, and the App executable declared only under `#if os(macOS)`
 - `Makefile`: `make test`, `make app`, `make run`, `make cert`; `SIGN_IDENTITY ?= Stackbar Dev`
   with ad-hoc fallback when the identity is missing (CI)
@@ -133,7 +136,7 @@ milestone.
 - Stable local signing identity (self-signed "Stackbar Dev" cert via `scripts/make-dev-cert.sh`
   or documented Keychain Access steps) so macOS TCC permissions survive rebuilds (ad-hoc
   signatures reset them every build)
-- GitHub Actions `ci.yml`: Linux job (`swift test`) + macOS job (`make app` on `macos-15`) on
+- GitHub Actions `ci.yml`: Linux job (`swift test`) + macOS job (`make app` on `macos-26`) on
   every push/PR
 - App shows the Stackbar icon in the menu bar with a Quit menu
 - Fill in the Commands section of `CLAUDE.md`
@@ -141,12 +144,15 @@ milestone.
   and `make run` on the host shows the icon with a working Quit.
 
 **M1 — Feasibility spike (v0.2.0) — biggest risk, do first**
-Debug build with a window listing all menu bar items live, plus a **diagnostics dump**:
-`Stackbar --dump` (and Debug → Copy diagnostics) prints a JSON `DiagnosticsSnapshot` (macOS
-version, Stackbar version, permission state, screen + notch geometry, every item with PID,
+A Debug menu (in every build) with a window listing all menu bar items live, plus a **diagnostics
+dump**: `Stackbar --dump` (and Debug → Copy diagnostics) prints a JSON `DiagnosticsSnapshot`
+(macOS version, Stackbar version, permission state, screen + notch geometry, every item with PID,
 bundle id, title, window id, frame, on-screen flag, layer). The user pastes dumps back into the
 dev session; they are committed unchanged as fixtures in `Tests/StackbarCoreTests/Fixtures/`
-and drive the Core tests. This milestone is driven from the Mac: keep iterations small.
+and drive the Core tests. Dumps are redacted by default (Decisions → Fixtures). Run from
+Terminal, `--dump` may report Terminal's permissions instead of Stackbar's, so Debug → Copy
+diagnostics from the running app is the reference path (S7 confirms). This milestone is driven
+from the Mac: keep iterations small.
 
 Spike questions. Each answer is written into this plan (Decisions / How it works / Risks):
 - **S1 Capture**: can a window pushed off-screen by the divider be captured by window ID with
@@ -155,7 +161,7 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   a real click, for an NSMenu app and an NSPopover app? Where does the menu open if the item is
   off-screen (expected: clamped to the screen edge, hence reveal first)? Decides step 4.
 - **S3 Move**: does a synthesized ⌘-drag (CGEvent mouse down with ⌘, dragged, mouse up) move an
-  item across the divider in both directions, on macOS 14 and 26? Decides step 5 and M4.
+  item across the divider in both directions on macOS 26? Decides step 5 and M4.
 - **S4 Immovable items**: which items refuse to move (expected: Clock, Control Center, Siri)?
 - **S5 Notch**: do items clipped by the notch still appear in the window list, with what frame
   and on-screen flag? Decides how Core computes `clipped`.
@@ -164,12 +170,13 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   without Accessibility?
 - **S8 Divider**: a status item with length 10 000 on the notched display hides everything left
   of it and leaves the icon visible.
-- Verify on macOS 14 and 26.
+- Verify on macOS 26 (the only supported OS). The no-notch fixture comes from the external display,
+  which S6 also needs.
 - Done when: S1–S8 have written answers, the fallbacks that apply are chosen, `--dump` works,
   and at least two fixtures (notched display with clipped items; display without notch) are
   committed and parsed by a Core test.
 
-**M2 — Hidden section (v0.3.0)**
+**M2 — Collapse & divider (v0.3.0)**
 - Divider + icon status items; collapse/expand pushes dropdown items off-screen (uses S8)
 - Core: `MenuBarItem`, `ItemIdentity`, `Section`, geometry types; given items + screen/notch
   geometry → which items are bar, dropdown, clipped; tested against the fixtures
@@ -205,8 +212,11 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
 - **Private-ish behaviour**: menu bar item windows and ⌘-drag moving are not public API
   contracts; macOS updates can break them. M1 exists to de-risk this early (S1–S8), with a
   fallback chosen per question.
-- **macOS 26 menu bar changes**: newer macOS versions add their own menu bar item controls in
-  System Settings; behaviour needs checking on 26 alongside 14.
+- **Private APIs** (open, ask the user when it comes up): if S5–S7 show that public window-list
+  data isn't enough on macOS 26 (item ownership, titles), may Stackbar call private
+  CoreGraphics/SkyLight functions? They don't block Developer ID signing or notarization.
+- **macOS menu bar changes**: macOS 26 adds its own menu bar item controls in System Settings and
+  is the only OS Stackbar supports. Check every new major macOS before claiming support.
 - **Screen-capture re-consent alerts**: macOS 15+ periodically asks the user to re-approve apps
   that capture the screen without the system picker. Stackbar will trigger them; onboarding
   explains it. Evaluate in M5 whether capturing less often reduces them.
@@ -218,6 +228,7 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   display (S6 tells us what the window list shows).
 - **Click forwarding UX**: menus must open in a sensible position, not off-screen; hence
   reveal first (S2).
-- **Toolchain drift**: container Swift 6.2 vs host Command Line Tools vs CI Xcode. Pinned to
-  tools-version 6.0; revisit when all three are confirmed newer.
-- **Apple Developer account** needed for notarized release (not needed for development).
+- **Toolchain drift**: container Swift 6.2 vs host Command Line Tools 26 vs CI Xcode 26.x. Pinned to
+  tools-version 6.2 and Swift 6.2 language features; raise when the container image moves up.
+- **Apple Developer account**: only needed if M5 picks Developer ID + notarization; never for
+  development.

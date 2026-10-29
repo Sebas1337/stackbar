@@ -4,7 +4,7 @@ macOS menu bar manager: one Stackbar icon in the menu bar opens a dropdown panel
 status icons the user chose to hide. This solves cluttered menu bars and icons lost behind the
 notch. Full plan, decisions, terminology and milestones: @docs/PLAN.md
 
-Status (2026-10-29): plan reviewed, nothing built yet. Next milestone: **M0**.
+Status (2026-10-29): plan reviewed; **M0** (foundation) in progress on `m0-foundation`.
 
 ## Environment: read this first
 
@@ -30,13 +30,16 @@ If `uname` says Darwin you're on the host Mac and can build everything.
 
 ## Commands
 
-Filled in during M0; expected:
-- `swift build` / `swift test`: Core and its tests (everywhere); on macOS also the app
-- `make test`: `swift test`
-- `make app`: bundle and sign `build/Stackbar.app` (host only)
-- `make run`: `make app` + launch (host only)
-- `make cert`: one-time self-signed "Stackbar Dev" signing identity (host only)
+- `swift build` / `swift test` (or `make build` / `make test`): Core and its tests everywhere; on
+  macOS also the app
+- `make app`: bundle and sign `build/Stackbar.app` (host only). Signs with `SIGN_IDENTITY`
+  (default "Stackbar Dev"), ad-hoc when that identity is missing (CI)
+- `make run`: `make app`, quit a running Stackbar, launch the new build (host only)
+- `make cert`: one-time self-signed "Stackbar Dev" signing identity (host only; asks for the
+  login password to trust it)
+- `make clean`: remove `build/`
 - `build/Stackbar.app/Contents/MacOS/Stackbar --dump`: diagnostics JSON (host only, from M1)
+- Host prerequisite: macOS 26 + Command Line Tools (`xcode-select --install`); Xcode is not needed
 
 ## Architecture rules
 
@@ -58,8 +61,8 @@ Filled in during M0; expected:
 ## Conventions
 
 - Swift 6 language mode, strict concurrency. UI and system-API adapters are `@MainActor`.
-- `swift-tools-version: 6.0`; no language or SDK features newer than Swift 6.0 / macOS 14 SDK
-  until host and CI toolchains are confirmed newer.
+- `swift-tools-version: 6.2`, minimum macOS 26 (the only supported OS). No language features newer
+  than Swift 6.2: the container is the lowest toolchain (host CLT and CI Xcode 26 are newer).
 - Prefer `struct` + value semantics in Core; `Codable` for anything persisted or dumped.
 - Swift Testing (`import Testing`) for new tests.
 - Keep files small and named after their main type.
@@ -74,5 +77,9 @@ Filled in during M0; expected:
 - Branch per feature (`m0-foundation`, `m1-spike`, ...), small commits, PRs into `main`. Run
   `/code-review` on the diff before opening a PR.
 - User-visible changes get a line under `## [Unreleased]` in `CHANGELOG.md`. Releases:
-  docs/RELEASING.md (bump `VERSION`, tag `vX.Y.Z`; never tag or release without being asked).
-- Commit/push only when asked, or when the user has said a session may do so.
+  docs/RELEASING.md (bump `VERSION`, tag `vX.Y.Z`).
+- Sessions may commit, push, open and merge PRs, tag and release on their own (user decision
+  2026-10-29), following the steps above and docs/RELEASING.md.
+- **Never push personal info** (real name, personal email, raw dumps). Author and committer are
+  `Sebas1337` with the GitHub noreply address; check `git config user.name` and the diff before
+  every push.
