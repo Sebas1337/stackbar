@@ -5,11 +5,18 @@ import StackbarCore
 /// on, a left click opens the dropdown panel and this menu moves to a right click.
 @MainActor
 final class StatusIconController {
+    static let autosaveName = "StackbarIcon"
+
     private let statusItem: NSStatusItem
+
+    /// The icon's window in the window list, for diagnostics.
+    var windowID: UInt32? {
+        StatusItemWindow.windowID(of: statusItem)
+    }
 
     init(buildInfo: BuildInfo) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.autosaveName = "StackbarIcon"
+        statusItem.autosaveName = Self.autosaveName
         if let button = statusItem.button {
             if let image = NSImage(systemSymbolName: "rectangle.stack", accessibilityDescription: "Stackbar") {
                 image.isTemplate = true
@@ -20,6 +27,14 @@ final class StatusIconController {
             }
         }
         statusItem.menu = Self.makeMenu(buildInfo: buildInfo)
+    }
+
+    /// Adds the Debug submenu above Quit.
+    func installDebugMenu(_ debug: DebugController) {
+        guard let menu = statusItem.menu else { return }
+        let quitIndex = menu.items.count - 1
+        menu.insertItem(DebugMenu.make(debug: debug), at: quitIndex)
+        menu.insertItem(.separator(), at: quitIndex + 1)
     }
 
     private static func makeMenu(buildInfo: BuildInfo) -> NSMenu {

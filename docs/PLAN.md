@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **M0 done (v0.1.0, 2026-10-29). Next: M1 (feasibility spike).**
+Status: **M1 done (v0.2.0, 2026-10-29). Next: M2 (collapse & divider).**
 
 ## Goal
 
@@ -27,11 +27,14 @@ dropdown**.
 | Dev environment | Devcontainer with Claude Code (yolo mode, open network) for writing code + testing `StackbarCore`; app built/run on the macOS host; GitHub Actions macOS runner as compile check for the app target. The user is the eyes on the Mac: diagnostics dumps pasted back become test fixtures (see M1) |
 | Bundle identifier | `io.github.sebas1337.stackbar`. macOS ties granted permissions to it: never change it |
 | Test hardware | One Mac: 16" MacBook Pro (M1 Pro/Max, notched), macOS 26. Its external display gives the no-notch and two-display cases. Everything is verified on this machine and on the `macos-26` CI runner |
-| Fixtures | The repo is public, so dumps are redacted by the app by default and fixtures stay unedited app output. Kept: titles of `com.apple.*` items, bundle ids, PIDs, window ids, frames, layers, on-screen flags, screen/notch geometry, versions, permission state. Other titles become a keyed hash + length (key stored only on the Mac, stable across dumps). Never collected: computer name, user name, file paths, display serials. The dump records `"redacted": true`; `--dump --raw` is for local debugging and is never committed |
-| Item identity | Bundle identifier (via `NSRunningApplication` for the owner PID) + window title (`kCGWindowName`, present only with Screen Recording). Without a title: bundle identifier + ordinal among that app's items, left to right. Several untitled items from one app are best effort |
+| Fixtures | The repo is public, so dumps are redacted by the app by default and fixtures stay unedited app output. Kept: titles of Apple (`com.apple.*`) and Stackbar menu bar items, bundle ids and process names of Apple and Stackbar, PIDs, window ids, frames, layers, on-screen flags, screen/notch geometry, versions, permission state. Titles of all other windows (menus, popovers, Safari/Finder panels can hold page or document names) and everything of other apps are hashed with a key stored only on the Mac (stable across dumps): titles become hash + length, bundle ids and process names become `hash:<hex>`, also inside notes (decided 2026-10-29: a public fixture must not reveal which apps the user runs). Never collected: computer name, user name, file paths, display serials. The dump records `"redacted": true`; `--dump --raw` is for local debugging and is never committed |
+| Item identity | Decided by M1 (S6/S7): on macOS 26 every status item window is owned by Control Center, so the window's owner PID says nothing. The owning app comes from Accessibility: each app's `AXExtrasMenuBar` children, matched to windows by frame (`MenuBarItemJoin`: AX content-frame center inside the window). Identity = that bundle id + the window title (`kCGWindowName`, Screen Recording only), which on the active display is the item's autosave name (`Clock`, `WiFi`, `StackbarIcon`, or `Item-N` for apps that set none). Without a usable title: bundle id + ordinal among that app's items, left to right. Public API only; no private CoreGraphics/SkyLight calls needed |
 | Re-apply trigger | Poll the window list every 2 s, plus immediately on `NSWorkspace` app launch/terminate and on screen-parameter changes. Tune in M4 |
 | First run | Starts expanded with nothing assigned to the dropdown. Collapsing is enabled only after onboarding (permissions + how to assign items) has finished |
-| Image refresh | Decided by spike S1: continuous (on panel open + every few seconds while open) if off-screen windows can be captured; otherwise reveal → capture → collapse on panel open, cached between opens |
+| Image refresh | Decided by S1: ScreenCaptureKit can't capture a window pushed off-screen by the divider ("Failed to start stream due to audio/video capture failure"); on-screen capture by window id works. So: reveal → capture → collapse on panel open, cached between opens |
+| Click forwarding | Decided by S2: expand → AXPress on the item's AX element → wait for its menu/popover to close → collapse. AXPress opens menus (NSMenu, Electron) and popovers like a real click; collapsed, the menu opens off-screen or clamped, so always expand first. Some apps return `kAXErrorCannotComplete` (-25204) while their menu still opens (ignore it); apps returning `kAXErrorActionUnsupported` (-25206) get a synthesized `CGEvent` click at the item's frame instead. Detect "opened" as a window of that app becoming visible (apps such as Stats reuse their panel window) |
+| Moving items | Decided by S3/S4: a synthesized ⌘-drag (mouse down with ⌘ at the item center, 20 drag steps, mouse up, cursor restored) moves items across the divider in both directions, Apple and third-party. Immovable: Clock and Control Center (verified); Siri assumed (not in the test bar) |
+| Displays | Decided by S6: every display's menu bar has its own window per item. The real items (original window ids, AX frames) live on the active display (`NSScreen.main`); other displays show copies with new window ids, titled with the owning app's bundle id, without AX frames. v1 works on the active display's items |
 | Accepted trade-offs | The menu bar reflows briefly whenever dropdown items are revealed (capture, click forwarding, moves). macOS 15+ shows periodic screen-capture re-consent alerts for Stackbar; onboarding explains them |
 
 ## Terminology
@@ -55,24 +58,32 @@ is avoided.
 Other apps' status items can't be "adopted" by another process. They stay in the real menu
 bar. Stackbar makes them disappear from view and shows a stand-in in its own panel:
 
-1. **Discover** items: `CGWindowListCopyWindowInfo` → windows at status-window level give
-   owner PID, window ID and frame of every menu bar item; the bundle identifier comes from
-   `NSRunningApplication` for that PID. Window titles (`kCGWindowName`) are only present with
-   Screen Recording permission. Notch geometry from `NSScreen.safeAreaInsets` /
-   `auxiliaryTopLeftArea` / `auxiliaryTopRightArea`. v1 only looks at the main display's
-   windows (spike S6 says what the list contains with two displays).
+1. **Discover** items: `CGWindowListCopyWindowInfo` → windows at status-window level (layer 25)
+   give window ID and frame of every menu bar item. All of them are owned by Control Center on
+   macOS 26, so the owning app comes from Accessibility: every running app's `AXExtrasMenuBar`
+   children report their content frame (22–24 pt high inside the 33 pt slot), and Core joins them
+   to windows by frame. Control Center also lists modules that aren't in the bar with a 0 × 0
+   frame; they never match. Window titles (`kCGWindowName`, Screen Recording only) are the
+   item's autosave name on the active display. Notch geometry from `NSScreen.safeAreaInsets` /
+   `auxiliaryTopLeftArea` / `auxiliaryTopRightArea`. Items behind the notch stay in the list
+   with their real frame and `isOnScreen = false` (S5): **clipped** = off-screen and overlapping
+   the notch. v1 looks at the active display (`NSScreen.main`) only: other displays carry copies
+   (S6).
 2. **Hide**: Stackbar owns two status items: the **icon** (opens the panel) and, left of it,
-   the **divider**. Items left of the divider are dropdown items; items right of it are bar
+   the **divider** (created with its "NSStatusItem Preferred Position" seeded just left of the
+   icon; a new item otherwise appears at the far left, behind the notch on a full bar). Items left of the divider are dropdown items; items right of it are bar
    items. When collapsed, the divider's length grows (~10 000 pt) so dropdown items are pushed
-   off-screen; expanded restores the normal length and everything shows in the bar.
+   off-screen; expanded restores the normal length and everything shows in the bar. Verified by S8: the
+   icon stays visible, the divider itself goes off-screen too (its image is centered in the long
+   button), so the icon is the collapse toggle.
 3. **Show in dropdown**: images of dropdown items are captured per window ID with
-   ScreenCaptureKit and rendered in an `NSPanel` under the icon. Images go stale (battery, VPN,
-   sync icons), so refresh matters: per the Image refresh decision, either continuous capture
-   of the off-screen windows (if S1 allows it) or reveal → capture → collapse on panel open.
+   ScreenCaptureKit (`SCContentFilter(desktopIndependentWindow:)` + `SCScreenshotManager`) and
+   rendered in an `NSPanel` under the icon. Off-screen windows can't be captured (S1), so on
+   panel open: reveal → capture → collapse, cached between opens.
 4. **Click forwarding**: clicking an icon in the panel runs: expand → re-enumerate to get the
-   item's on-screen frame → trigger the item (AXPress through the app's `AXExtrasMenuBar` if S2
-   shows it behaves like a real click, else a synthesized `CGEvent` click at the frame with the
-   cursor restored afterwards) → stay expanded until the item's menu or popover closes →
+   item's on-screen frame → trigger the item (AXPress through the app's `AXExtrasMenuBar`, S2;
+   a synthesized `CGEvent` click at the frame with the cursor restored afterwards only for apps
+   that return `kAXErrorActionUnsupported`) → stay expanded until the item's menu or popover closes →
    collapse. "Closed" means that app's menu window has left the window list, or a mouse-down
    landed outside it, with a timeout as backstop. Menus therefore open at the item's real
    position in the bar.
@@ -80,8 +91,8 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    item across the divider. Moves run only while expanded, because a ⌘-drag can't reach an
    off-screen item: expand → for each move: ⌘-drag, re-enumerate, verify, retry once →
    collapse. Core produces the ordered move list from desired vs actual layout; the app
-   executes it. Immovable items are never touched. Fallback if S3 shows ⌘-drag synthesis is
-   unreliable: the user drags manually; Stackbar only persists and reports.
+   executes it. Immovable items (Clock, Control Center; S4) are never touched. S3 confirmed the
+   synthesized ⌘-drag in both directions; the manual-drag fallback is not needed.
 6. **Watch & re-apply**: the window list is polled (see Re-apply trigger). New items that match
    a persisted identity are moved to their assigned section via step 5; unknown items stay
    where macOS puts them and show up in Settings.
@@ -175,6 +186,12 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
 - Done when: S1–S8 have written answers, the fallbacks that apply are chosen, `--dump` works,
   and at least two fixtures (notched display with clipped items; display without notch) are
   committed and parsed by a Core test.
+- **Result (2026-10-29)**: done. S1 off-screen capture fails → reveal → capture → collapse.
+  S2 AXPress works (synthesized click only for apps without AXPress). S3 ⌘-drag works both ways.
+  S4 Clock, Control Center immovable. S5 clipped items listed off-screen with real frames.
+  S6 one window per item per display, real items on the active display. S7 without
+  Accessibility no ownership; without Screen Recording no titles. S8 divider works. Answers are
+  in Decisions, How it works and Risks; fixtures `m1-mbp16-macos26-{notch,spike,extended,external-primary}.json`.
 
 **M2 — Collapse & divider (v0.3.0)**
 - Divider + icon status items; collapse/expand pushes dropdown items off-screen (uses S8)
@@ -214,9 +231,15 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
 - **Private-ish behaviour**: menu bar item windows and ⌘-drag moving are not public API
   contracts; macOS updates can break them. M1 exists to de-risk this early (S1–S8), with a
   fallback chosen per question.
-- **Private APIs** (open, ask the user when it comes up): if S5–S7 show that public window-list
-  data isn't enough on macOS 26 (item ownership, titles), may Stackbar call private
-  CoreGraphics/SkyLight functions? They don't block Developer ID signing or notarization.
+- **Private APIs**: not needed after M1. Window list + Accessibility identify items with public
+  API. The only gap is capturing off-screen items (S1), covered by reveal → capture → collapse.
+  Ask the user before ever adding one.
+- **Ownership depends on Accessibility**: without it, items can't be attributed to apps (S7);
+  onboarding must get Accessibility before anything else. The AX/window frame join is a
+  heuristic (content-frame center inside the slot); a Control Center whole-slot element was seen
+  on top of a third-party item and loses to content frames.
+- **Item windows follow the active display** (S6): when focus moves to another display, item
+  window ids and positions change. M2/M4 must re-enumerate on display and focus changes.
 - **macOS menu bar changes**: macOS 26 adds its own menu bar item controls in System Settings and
   is the only OS Stackbar supports. Check every new major macOS before claiming support.
 - **Screen-capture re-consent alerts**: macOS 15+ periodically asks the user to re-approve apps
@@ -226,10 +249,10 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   moment. Accepted; keep the window as short as possible.
 - **Item identity** across relaunches: decided (bundle id + title, fallback ordinal); apps with
   several untitled items remain best effort.
-- **Multiple displays**: each display has its own menu bar; v1 targets the built-in/main
-  display (S6 tells us what the window list shows).
+- **Multiple displays**: each display has its own menu bar with its own item windows; v1 targets
+  the active display (S6).
 - **Click forwarding UX**: menus must open in a sensible position, not off-screen; hence
-  reveal first (S2).
+  reveal first (S2 confirmed: collapsed, menus open off-screen or clamped to the corner).
 - **Toolchain drift**: container Swift 6.2 vs host Command Line Tools 26 vs CI Xcode 26.x. Pinned to
   tools-version 6.2 and Swift 6.2 language features; raise when the container image moves up.
 - **Apple Developer account**: only needed if M5 picks Developer ID + notarization; never for

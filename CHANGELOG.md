@@ -6,6 +6,13 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Debug menu: Menu Bar Items window (live list of every status item with its owning app,
+  position, on-screen and notch state) and Copy Diagnostics.
+- `Stackbar --dump` prints a diagnostics snapshot as JSON. Titles, bundle ids and process names
+  of non-Apple apps are hashed so dumps can be shared.
+- Spike experiments for the divider, item capture, AXPress and ⌘-drag (Debug → Menu Bar Items).
+
 ## [0.1.0] - 2026-10-29
 
 ### Added

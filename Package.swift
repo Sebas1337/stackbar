@@ -7,7 +7,11 @@ var products: [Product] = [
 
 var targets: [Target] = [
     .target(name: "StackbarCore", exclude: ["CLAUDE.md"]),
-    .testTarget(name: "StackbarCoreTests", dependencies: ["StackbarCore"]),
+    .testTarget(
+        name: "StackbarCoreTests",
+        dependencies: ["StackbarCore"],
+        resources: [.copy("Fixtures")]
+    ),
 ]
 
 // The app needs AppKit, so it only exists in the manifest on macOS. This keeps `swift build`
