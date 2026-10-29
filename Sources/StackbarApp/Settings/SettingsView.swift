@@ -36,7 +36,7 @@ struct SettingsView: View {
 private struct SectionList: View {
     var title: String
     var subtitle: String
-    var section: Section
+    var section: StackbarCore.Section
     var model: SettingsModel
     @State private var isTargeted = false
 
@@ -53,7 +53,7 @@ private struct SectionList: View {
                             .modifier(Draggable(row: row))
                             .contextMenu {
                                 if row.canMove {
-                                    let other: Section = section == .bar ? .dropdown : .bar
+                                    let other: StackbarCore.Section = section == .bar ? .dropdown : .bar
                                     Button(other == .bar ? "Move to Menu Bar" : "Move to Dropdown") {
                                         model.onAssign(row, other)
                                     }
