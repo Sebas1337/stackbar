@@ -32,7 +32,7 @@ final class DropdownModel {
     @ObservationIgnored var onSelect: (MenuBarItem) -> Void = { _ in }
 
     /// All images in one column, as wide as the widest item.
-    var imageColumnWidth: Double { items.map(\.size.width).max() ?? 0 }
+    var imageColumnWidth: CGFloat { items.map(\.size.width).max() ?? 0 }
 
     /// A line under the rows, only when something needs saying.
     var footer: String? {
@@ -94,7 +94,7 @@ struct DropdownView: View {
 /// menu item.
 private struct DropdownRow: View {
     var item: DropdownModel.Item
-    var imageWidth: Double
+    var imageWidth: CGFloat
     var isHovered: Bool
     var action: () -> Void
 
