@@ -29,8 +29,16 @@ final class ItemCapturer: ItemCapturing {
                 remaining.append(item)
             }
         }
-        guard !remaining.isEmpty else { return captured }
-        return captured.union(await captureWithScreenCaptureKit(remaining))
+        let viaPrivate = captured.count
+        if !remaining.isEmpty {
+            captured.formUnion(await captureWithScreenCaptureKit(remaining))
+        }
+        // Which route ran matters for the "capturing your screen" indicator: log it into the dump.
+        let message = "Capture: \(items.count) items, private \(viaPrivate), ScreenCaptureKit \(captured.count - viaPrivate) "
+            + "of \(remaining.count) tried, failed \(items.count - captured.count)"
+        logger.notice("\(message, privacy: .public)")
+        SpikeLog.shared.add(message)
+        return captured
     }
 
     private func captureWithScreenCaptureKit(_ items: [MenuBarItem]) async -> Set<UInt32> {

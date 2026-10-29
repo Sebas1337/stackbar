@@ -94,11 +94,10 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    that return `kAXErrorActionUnsupported`) → stay expanded until the item's menu or popover closes →
    collapse (`ClickForwarding`). "Closed" means the windows the app opened have left the window
    list or gone off-screen, with a 60 s timeout as backstop. Menus therefore open at the item's real
-   position in the bar. M3b shows the item alone: right after expanding it is ⌘-dragged just
-   right of the divider and the bar collapses again, so only that item is in view while its menu
-   is open; afterwards a window-targeted ⌘-drag puts it back left of the collapsed divider (S9;
-   retry once, else expand and drag it back). Items behind the notch can't be dragged and keep
-   the plain sequence. The item comes back next to the divider, not at its old spot.
+   position in the bar. M3b built "show the item alone" (`ClickForwarding` with an
+   `ItemMoving`: ⌘-drag it right of the divider, collapse, press, drag it back left of the
+   collapsed divider, S9), but the app doesn't use it: the synthesized ⌘-drags move the cursor
+   visibly, which the user rejected (2026-10-29). Clicks expand the whole bar.
 5. **Arrange**: moving an item between bar and dropdown is a synthesized ⌘-drag of the real
    item across the divider. Moves run only while expanded, because a ⌘-drag can't reach an
    off-screen item: expand → for each move: ⌘-drag, re-enumerate, verify, retry once →
@@ -241,11 +240,11 @@ only the clicked item appearing in the bar instead of every dropdown item.
   answers in Decisions → Private APIs / Moving items
 - Panel rows: image + name
 - Refresh captures revealed items behind the notch with the private capture
-- Temporary show: expand → ⌘-drag the clicked item right of the divider → collapse (only it
-  stays in view) → press → after the menu closes, move it back left of the collapsed divider
-  (S9). Items behind the notch can't be dragged: they keep M3's click forwarding
-- Done when: every dropdown item has a current image (also behind the notch), the panel is a
-  list, and clicking a row shows only that item while its menu is open and puts it back after.
+- Temporary show (only the clicked item in view): built in Core, not used by the app. Moving an
+  off-screen item is impossible (S9), so it needs a visible ⌘-drag, and the moving cursor was
+  rejected (2026-10-29). Clicks keep M3's click forwarding
+- Done when: every dropdown item has a current image (also behind the notch) and the panel is a
+  list.
 
 **M4 — Arrangement & persistence (v0.6.0)**
 - Settings window: two lists (Bar / Dropdown), drag to assign; immovable items shown greyed out
