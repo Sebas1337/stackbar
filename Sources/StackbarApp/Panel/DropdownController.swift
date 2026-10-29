@@ -102,8 +102,7 @@ final class DropdownController {
         close()
         enqueue { [weak self] in
             guard let self else { return }
-            let report = await ClickForwarding(driver: menuBar, presser: presser, capturer: capturer, recaptures: false).run(item)
-            if report.recaptured { show(model.items.map(\.menuBarItem)) }
+            let report = await ClickForwarding(driver: menuBar, presser: presser).run(item)
             log(report.description)
         }
     }

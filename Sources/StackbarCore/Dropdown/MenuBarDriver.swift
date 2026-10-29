@@ -31,21 +31,6 @@ public protocol ItemCapturing: AnyObject {
     func hasImage(of item: MenuBarItem) -> Bool
 }
 
-/// Moves items with a synthesized ⌘-drag (S3, S9).
-@MainActor
-public protocol ItemMoving: AnyObject {
-    /// ⌘-drags `window` from its center to (`x`, `y`), global points, top-left origin.
-    func drag(_ window: WindowInfo, toX x: Double, y: Double, style: DragStyle) async
-}
-
-public enum DragStyle: Sendable, Equatable {
-    /// Plain events at visible positions, like a person would drag (S3). Both ends on-screen.
-    case visible
-    /// Events that name the windows (S9), for a drop point off the display: left of the collapsed
-    /// divider, whose window is `targetWindowID`.
-    case windowTargeted(targetWindowID: UInt32)
-}
-
 /// Triggers an item like a click (S2).
 @MainActor
 public protocol ItemPressing: AnyObject {

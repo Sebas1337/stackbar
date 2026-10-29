@@ -15,7 +15,7 @@ struct ClickForwardingTests {
         let item = try #require(bar.layout()?.dropdown.first { $0.window.windowID == windowID })
         bar.menu = FakeMenuBar.menuWindow(pid: try #require(item.ax?.pid))
         bar.menuReads = 5
-        return (bar, ClickForwarding(driver: bar, presser: bar, capturer: bar), item)
+        return (bar, ClickForwarding(driver: bar, presser: bar), item)
     }
 
     @Test func pressesWaitsForTheMenuToCloseAndCollapses() async throws {
@@ -28,8 +28,7 @@ struct ClickForwardingTests {
         #expect(bar.pressed == [Self.sound])
         #expect(bar.collapseCalls == [false, true])
         #expect(report.isCollapsed)
-        #expect(report.recaptured)
-        #expect(bar.captured == [[Self.sound]])
+        #expect(bar.captured.isEmpty)
     }
 
     @Test func cannotCompleteStillWaitsForTheMenu() async throws {
@@ -74,18 +73,17 @@ struct ClickForwardingTests {
         var timing = ClickForwarding.Timing()
         timing.closePolls = 10
         bar.menuReads = 1_000
-        let report = await ClickForwarding(driver: bar, presser: bar, capturer: bar, timing: timing).run(item)
+        let report = await ClickForwarding(driver: bar, presser: bar, timing: timing).run(item)
         #expect(report.outcome == .timedOut)
         #expect(report.isCollapsed)
     }
 
-    /// Behind the notch: pressed like any other item, but there is no image to take.
-    @Test func clippedItemIsPressedButNotCaptured() async throws {
+    /// Behind the notch: pressed like any other item.
+    @Test func clippedItemIsPressed() async throws {
         let (bar, forwarding, item) = try Self.setUp(Self.bluetooth)
         let report = await forwarding.run(item)
         #expect(report.outcome == .closed)
         #expect(bar.pressed == [Self.bluetooth])
-        #expect(!report.recaptured)
         #expect(bar.captured.isEmpty)
     }
 
@@ -108,7 +106,7 @@ struct ClickForwardingTests {
     @Test func expandedStaysExpanded() async throws {
         let (bar, _, item) = try Self.setUp()
         bar.isCollapsed = false
-        let report = await ClickForwarding(driver: bar, presser: bar, capturer: bar).run(item)
+        let report = await ClickForwarding(driver: bar, presser: bar).run(item)
         #expect(report.outcome == .closed)
         #expect(bar.collapseCalls.isEmpty)
         #expect(!report.isCollapsed)
@@ -122,14 +120,6 @@ struct ClickForwardingTests {
         #expect(report.outcome == .itemNotFound)
         #expect(bar.pressed.isEmpty)
         #expect(report.isCollapsed)
-    }
-
-    @Test func noRecaptureWhenDisabled() async throws {
-        let (bar, _, item) = try Self.setUp()
-        let report = await ClickForwarding(driver: bar, presser: bar, capturer: bar, recaptures: false).run(item)
-        #expect(report.outcome == .closed)
-        #expect(!report.recaptured)
-        #expect(bar.captured.isEmpty)
     }
 
     @Test func pressResultsFromAXErrors() {

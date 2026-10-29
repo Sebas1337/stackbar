@@ -5,10 +5,12 @@ import os
 private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category: "capture")
 
 /// **Private API** (approved by the user 2026-10-29; docs/PLAN.md, Decisions → Private APIs):
-/// SkyLight's `CGSHWCaptureWindowList` captures a window wherever it is, also off-screen
-/// (collapsed dropdown items, items behind the notch), which ScreenCaptureKit can't (S1).
+/// SkyLight's `CGSHWCaptureWindowList` captures windows that are on the display but not shown,
+/// i.e. items behind the notch, which ScreenCaptureKit can't (S1). Not items the collapsed divider
+/// pushed off the display (S10: no image). Unlike ScreenCaptureKit screenshots it makes macOS show
+/// "Screen Recording is in use".
 /// Loaded with `dlsym`, so Stackbar doesn't link against SkyLight: on a macOS without these
-/// symbols `isAvailable` is false and callers fall back to ScreenCaptureKit.
+/// symbols `isAvailable` is false and items behind the notch keep their app's icon.
 @MainActor
 enum PrivateWindowCapture {
     private typealias MainConnectionID = @convention(c) () -> Int32

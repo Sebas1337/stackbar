@@ -2,14 +2,16 @@ import AppKit
 import ApplicationServices
 import StackbarCore
 
-/// Moves items with a synthesized ⌘-drag, cursor restored afterwards. Needs Accessibility.
+/// Synthesized ⌘-drags of items, cursor restored afterwards (Debug spikes S3/S9; M4 builds its
+/// moves on this). Needs Accessibility.
 ///
-/// - `.visible`: plain events through the HID tap at on-screen positions (S3).
-/// - `.windowTargeted`: events through the session tap that name the dragged window (down and
+/// - `visible`: plain events through the HID tap at on-screen positions (S3).
+/// - `windowTargeted`: events through the session tap that name the dragged window (down and
 ///   drags) and the drop window (up) in the window-under-pointer fields, so a drop point off the
-///   display, left of the collapsed divider, still lands (S9).
+///   display, left of the collapsed divider, still lands (S9). Dragging an off-screen item into
+///   the bar fails with every route (S9).
 @MainActor
-final class ItemMover: ItemMoving {
+enum ItemMover {
     /// How the events of one drag are posted. The Debug spike tries several.
     struct Route {
         var name: String
@@ -22,16 +24,6 @@ final class ItemMover: ItemMoving {
 
     static let visible = Route(name: "hid drag", tap: .cghidEventTap)
     static let windowTargeted = Route(name: "session drag", tap: .cgSessionEventTap, targetsWindows: true)
-
-    func drag(_ window: WindowInfo, toX x: Double, y: Double, style: DragStyle) async {
-        guard AXIsProcessTrusted() else { return }
-        switch style {
-        case .visible:
-            await Self.drag(window, to: CGPoint(x: x, y: y), targetWindowID: window.windowID, route: Self.visible)
-        case .windowTargeted(let targetWindowID):
-            await Self.drag(window, to: CGPoint(x: x, y: y), targetWindowID: targetWindowID, route: Self.windowTargeted)
-        }
-    }
 
     /// ⌘-drags `window` from its center to `target` (global, top-left origin) along `route`.
     static func drag(_ window: WindowInfo, to target: CGPoint, targetWindowID: UInt32, route: Route) async {

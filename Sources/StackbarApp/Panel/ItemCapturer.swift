@@ -18,6 +18,8 @@ private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category:
 @MainActor
 final class ItemCapturer: ItemCapturing {
     private var images: [UInt32: CGImage] = [:]
+    /// Windows already looked up on disk without a file, so opening the panel doesn't look again.
+    private var notOnDisk: Set<UInt32> = []
 
     static let folder = FileManager.default
         .urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -40,10 +42,13 @@ final class ItemCapturer: ItemCapturing {
     func image(for item: MenuBarItem) -> CGImage? {
         let id = item.window.windowID
         if let image = images[id] { return image }
-        guard let file = Self.file(for: item),
+        guard !notOnDisk.contains(id), let file = Self.file(for: item),
               let source = CGImageSourceCreateWithURL(file as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else { return nil }
+        else {
+            notOnDisk.insert(id)
+            return nil
+        }
         images[id] = image
         return image
     }
@@ -102,6 +107,7 @@ final class ItemCapturer: ItemCapturing {
 
     private func keep(_ image: CGImage, for item: MenuBarItem) {
         images[item.window.windowID] = image
+        notOnDisk.remove(item.window.windowID)
         guard let file = Self.file(for: item) else { return }
         do {
             try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
@@ -111,16 +117,12 @@ final class ItemCapturer: ItemCapturing {
         }
     }
 
-    /// One file per item identity (bundle id + title or ordinal); the name is a hash, so the folder
-    /// doesn't list which apps run. Nil without an identity (no Accessibility).
+    /// One file per item identity (bundle id + title); the name is a hash, so the folder doesn't
+    /// list which apps run. Nil without a title identity: ordinals change when collapsing swaps
+    /// neighbours (m2 fixtures), so an untitled item could get another item's image.
     private static func file(for item: MenuBarItem) -> URL? {
-        guard let identity = item.identity else { return nil }
-        let key: String
-        switch identity.key {
-        case .title(let title): key = "title:\(title.comparisonKey)"
-        case .ordinal(let ordinal): key = "ordinal:\(ordinal)"
-        }
-        let digest = SHA256.hash(data: Data("\(identity.bundleID) \(key)".utf8))
+        guard let identity = item.identity, case .title(let title) = identity.key else { return nil }
+        let digest = SHA256.hash(data: Data("\(identity.bundleID) title:\(title.comparisonKey)".utf8))
         return folder.appendingPathComponent(digest.map { String(format: "%02x", $0) }.joined() + ".png")
     }
 
