@@ -4,15 +4,15 @@ import StackbarCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var statusIcon: StatusIconController?
+    private var menuBar: MenuBarController?
     private var debug: DebugController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let buildInfo = BuildInfo(infoDictionary: Bundle.main.infoDictionary ?? [:])
-        let statusIcon = StatusIconController(buildInfo: buildInfo)
-        let debug = DebugController(buildInfo: buildInfo) { [weak statusIcon] in statusIcon?.windowID }
-        statusIcon.installDebugMenu(debug)
-        self.statusIcon = statusIcon
+        let menuBar = MenuBarController(buildInfo: buildInfo)
+        let debug = DebugController(buildInfo: buildInfo, menuBar: menuBar)
+        menuBar.icon.installDebugMenu(debug)
+        self.menuBar = menuBar
         self.debug = debug
         Logger(subsystem: "io.github.sebas1337.stackbar", category: "app")
             .notice("launched \(buildInfo.displayString, privacy: .public), AX trusted=\(AXIsProcessTrusted(), privacy: .public)")

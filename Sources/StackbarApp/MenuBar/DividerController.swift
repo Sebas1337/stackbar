@@ -1,21 +1,17 @@
 import AppKit
+import StackbarCore
 
 /// Stackbar's **divider** status item, left of the icon. Items left of it are dropdown items.
-/// Collapsed, its length grows so those items are pushed off-screen (spike S8; M2 builds on it).
+/// Collapsed, its length grows so those items are pushed off-screen (spike S8).
 @MainActor
 final class DividerController {
-    static let expandedLength: CGFloat = 14
-    static let collapsedLength: CGFloat = 10_000
-
     private let statusItem: NSStatusItem
-
-    static let autosaveName = "StackbarDivider"
 
     /// `iconAutosaveName`: the icon's autosave name; the divider is placed directly left of it.
     init(iconAutosaveName: String) {
         Self.placeLeftOfIcon(iconAutosaveName)
-        statusItem = NSStatusBar.system.statusItem(withLength: Self.expandedLength)
-        statusItem.autosaveName = Self.autosaveName
+        statusItem = NSStatusBar.system.statusItem(withLength: StackbarItemsInfo.expandedDividerLength)
+        statusItem.autosaveName = StackbarItemsInfo.dividerAutosaveName
         if let button = statusItem.button {
             let image = NSImage(systemSymbolName: "line.diagonal", accessibilityDescription: "Stackbar divider")
             image?.isTemplate = true
@@ -31,18 +27,15 @@ final class DividerController {
     private static func placeLeftOfIcon(_ iconAutosaveName: String) {
         let defaults = UserDefaults.standard
         let key = { (name: String) in "NSStatusItem Preferred Position \(name)" }
+        let dividerKey = key(StackbarItemsInfo.dividerAutosaveName)
         guard let iconPosition = defaults.object(forKey: key(iconAutosaveName)) as? Double else { return }
-        let dividerPosition = defaults.object(forKey: key(autosaveName)) as? Double
+        let dividerPosition = defaults.object(forKey: dividerKey) as? Double
         if dividerPosition == nil || dividerPosition! <= iconPosition {
-            defaults.set(iconPosition + 1, forKey: key(autosaveName))
+            defaults.set(iconPosition + 1, forKey: dividerKey)
         }
     }
 
-    func remove() {
-        NSStatusBar.system.removeStatusItem(statusItem)
-    }
-
-    var isCollapsed: Bool { statusItem.length >= Self.collapsedLength }
+    var isCollapsed: Bool { statusItem.length >= StackbarItemsInfo.collapsedDividerLength }
 
     var length: Double { statusItem.length }
 
@@ -51,6 +44,6 @@ final class DividerController {
     }
 
     func setCollapsed(_ collapsed: Bool) {
-        statusItem.length = collapsed ? Self.collapsedLength : Self.expandedLength
+        statusItem.length = collapsed ? StackbarItemsInfo.collapsedDividerLength : StackbarItemsInfo.expandedDividerLength
     }
 }

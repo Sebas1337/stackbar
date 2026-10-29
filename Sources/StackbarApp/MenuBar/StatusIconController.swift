@@ -1,13 +1,15 @@
 import AppKit
 import StackbarCore
 
-/// Stackbar's **icon** status item. For now it opens a menu with the version and Quit; from M3
-/// on, a left click opens the dropdown panel and this menu moves to a right click.
+/// Stackbar's **icon** status item. A left click runs `onClick` (collapse / expand; from M3 on it
+/// opens the dropdown panel); a right click or ⌃-click opens the menu with the version, Debug
+/// and Quit.
 @MainActor
-final class StatusIconController {
-    static let autosaveName = "StackbarIcon"
-
+final class StatusIconController: NSObject {
     private let statusItem: NSStatusItem
+    private let menu: NSMenu
+
+    var onClick: (() -> Void)?
 
     /// The icon's window in the window list, for diagnostics.
     var windowID: UInt32? {
@@ -16,25 +18,53 @@ final class StatusIconController {
 
     init(buildInfo: BuildInfo) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.autosaveName = Self.autosaveName
+        statusItem.autosaveName = StackbarItemsInfo.iconAutosaveName
+        menu = Self.makeMenu(buildInfo: buildInfo)
+        super.init()
         if let button = statusItem.button {
-            if let image = NSImage(systemSymbolName: "rectangle.stack", accessibilityDescription: "Stackbar") {
-                image.isTemplate = true
-                button.image = image
-            } else {
-                // Never leave an empty, unclickable item: an agent app has no other way to quit.
-                button.title = "SB"
-            }
+            button.target = self
+            button.action = #selector(clicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-        statusItem.menu = Self.makeMenu(buildInfo: buildInfo)
+        showCollapsed(false)
+    }
+
+    /// Filled icon while collapsed, so the state is visible at a glance.
+    func showCollapsed(_ collapsed: Bool) {
+        guard let button = statusItem.button else { return }
+        let symbol = collapsed ? "rectangle.stack.fill" : "rectangle.stack"
+        if let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Stackbar") {
+            image.isTemplate = true
+            button.image = image
+            button.title = ""
+        } else {
+            // Never leave an empty, unclickable item: an agent app has no other way to quit.
+            button.image = nil
+            button.title = "SB"
+        }
     }
 
     /// Adds the Debug submenu above Quit.
     func installDebugMenu(_ debug: DebugController) {
-        guard let menu = statusItem.menu else { return }
         let quitIndex = menu.items.count - 1
         menu.insertItem(DebugMenu.make(debug: debug), at: quitIndex)
         menu.insertItem(.separator(), at: quitIndex + 1)
+    }
+
+    @objc private func clicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true || onClick == nil {
+            showMenu()
+        } else {
+            onClick?()
+        }
+    }
+
+    /// A status item with a `menu` opens it on every click, so attach it only for this one.
+    private func showMenu() {
+        statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
     }
 
     private static func makeMenu(buildInfo: BuildInfo) -> NSMenu {
