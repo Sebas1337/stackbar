@@ -7,6 +7,11 @@ import StackbarCore
 final class StatusIconController {
     private let statusItem: NSStatusItem
 
+    /// The icon's window in the window list, for diagnostics.
+    var windowID: UInt32? {
+        statusItem.button?.window.map { UInt32($0.windowNumber) }
+    }
+
     init(buildInfo: BuildInfo) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.autosaveName = "StackbarIcon"
@@ -20,6 +25,14 @@ final class StatusIconController {
             }
         }
         statusItem.menu = Self.makeMenu(buildInfo: buildInfo)
+    }
+
+    /// Adds the Debug submenu above Quit.
+    func installDebugMenu(_ debug: DebugController) {
+        guard let menu = statusItem.menu else { return }
+        let quitIndex = menu.items.count - 1
+        menu.insertItem(DebugMenu.make(debug: debug), at: quitIndex)
+        menu.insertItem(.separator(), at: quitIndex + 1)
     }
 
     private static func makeMenu(buildInfo: BuildInfo) -> NSMenu {
