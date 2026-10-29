@@ -44,7 +44,7 @@ enum AXMenuBarReader {
         return result
     }
 
-    private static func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
+    static func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else {
             return nil
@@ -52,12 +52,12 @@ enum AXMenuBarReader {
         return value as? T
     }
 
-    private static func text(_ element: AXUIElement, _ name: String) -> RedactedText? {
+    static func text(_ element: AXUIElement, _ name: String) -> RedactedText? {
         guard let string: String = attribute(element, name), !string.isEmpty else { return nil }
         return .plain(string)
     }
 
-    private static func frame(of element: AXUIElement) -> Rect? {
+    static func frame(of element: AXUIElement) -> Rect? {
         guard let positionValue: AXValue = attribute(element, kAXPositionAttribute),
               let sizeValue: AXValue = attribute(element, kAXSizeAttribute)
         else { return nil }

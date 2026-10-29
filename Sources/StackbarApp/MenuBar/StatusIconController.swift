@@ -1,15 +1,19 @@
 import AppKit
 import StackbarCore
 
-/// Stackbar's **icon** status item. A left click runs `onClick` (collapse / expand; from M3 on it
-/// opens the dropdown panel); a right click or ⌃-click opens the menu with the version, Debug
-/// and Quit.
+/// Stackbar's **icon** status item. A left click runs `onClick` (opens or closes the dropdown
+/// panel); a right click or ⌃-click opens the menu with the version, Show All Items / Collapse,
+/// Debug and Quit.
 @MainActor
 final class StatusIconController: NSObject {
     private let statusItem: NSStatusItem
     private let menu: NSMenu
+    private var collapseItem: NSMenuItem?
+    private var isCollapsed: () -> Bool = { false }
 
     var onClick: (() -> Void)?
+    /// Runs before the menu opens (closes the dropdown panel).
+    var onMenu: (() -> Void)?
 
     private var knownWindowID: UInt32?
 
@@ -18,6 +22,16 @@ final class StatusIconController: NSObject {
         knownWindowID = StatusItemWindow.cached(knownWindowID, in: windows, of: statusItem)
         return knownWindowID
     }
+
+    /// The icon's frame in global points, top-left origin (like the window list).
+    var frame: Rect? {
+        guard let window = statusItem.button?.window else { return nil }
+        return ScreenReader.flip(window.frame, NSScreen.screens.first?.frame.height ?? 0)
+    }
+
+    /// The menu bar's appearance (light or dark, following the wallpaper), which is what the
+    /// captured item images were drawn for.
+    var menuBarAppearance: NSAppearance? { statusItem.button?.effectiveAppearance }
 
     init(buildInfo: BuildInfo) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -47,6 +61,16 @@ final class StatusIconController: NSObject {
         }
     }
 
+    /// Adds "Show All Items" (expand, e.g. to ⌘-drag items across the divider) or "Collapse"
+    /// below the version line.
+    func installCollapseItem(isCollapsed: @escaping () -> Bool, toggle: @escaping () -> Void) {
+        self.isCollapsed = isCollapsed
+        let item = NSMenuItem(title: "Show All Items", action: toggle)
+        menu.insertItem(item, at: 2)
+        menu.insertItem(.separator(), at: 3)
+        collapseItem = item
+    }
+
     /// Adds the Debug submenu above Quit.
     func installDebugMenu(_ debug: DebugController) {
         let quitIndex = menu.items.count - 1
@@ -65,6 +89,8 @@ final class StatusIconController: NSObject {
 
     /// A status item with a `menu` opens it on every click, so attach it only for this one.
     private func showMenu() {
+        onMenu?()
+        collapseItem?.title = isCollapsed() ? "Show All Items" : "Collapse Menu Bar"
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         statusItem.menu = nil
