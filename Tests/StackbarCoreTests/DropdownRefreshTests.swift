@@ -21,6 +21,7 @@ struct DropdownRefreshTests {
         #expect(bar.collapseCalls == [false, true])
         #expect(bar.captured.count == 1)
         #expect(Set(bar.captured[0]) == Self.capturable)
+        #expect(bar.capturedWhileCollapsed == [false])
         #expect(report.captured == Self.capturable)
         #expect(Set(report.notCapturable) == Set(Self.dropdown).subtracting(Self.capturable))
         #expect(report.isCollapsed)

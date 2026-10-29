@@ -22,8 +22,26 @@ public protocol MenuBarDriver: AnyObject {
 /// captured). The images stay in the app; Core only learns which captures worked.
 @MainActor
 public protocol ItemCapturing: AnyObject {
+    /// True when items behind the notch (on the display, not shown) can be captured too: the
+    /// private capture can, ScreenCaptureKit can't (S10).
+    var capturesClippedItems: Bool { get }
     /// Returns the window ids that were captured.
     func capture(_ items: [MenuBarItem]) async -> Set<UInt32>
+}
+
+/// Moves items with a synthesized ⌘-drag (S3, S9).
+@MainActor
+public protocol ItemMoving: AnyObject {
+    /// ⌘-drags `window` from its center to (`x`, `y`), global points, top-left origin.
+    func drag(_ window: WindowInfo, toX x: Double, y: Double, style: DragStyle) async
+}
+
+public enum DragStyle: Sendable, Equatable {
+    /// Plain events at visible positions, like a person would drag (S3). Both ends on-screen.
+    case visible
+    /// Events that name the windows (S9), for a drop point off the display: left of the collapsed
+    /// divider, whose window is `targetWindowID`.
+    case windowTargeted(targetWindowID: UInt32)
 }
 
 /// Triggers an item like a click (S2).
@@ -65,10 +83,23 @@ extension MenuBarDriver {
         polls: Int,
         intervalMilliseconds: Int
     ) async -> [WindowInfo]? {
+        await waitUntilSettled(windowIDs, polls: polls, intervalMilliseconds: intervalMilliseconds) {
+            RevealCheck.isRevealed(windowIDs, in: $0, screen: screen)
+        }
+    }
+
+    /// Polls the window list until `condition` holds with the same frames for `windowIDs` in two
+    /// reads in a row. Returns that window list, or nil after `polls` reads.
+    func waitUntilSettled(
+        _ windowIDs: Set<UInt32>,
+        polls: Int,
+        intervalMilliseconds: Int,
+        until condition: ([WindowInfo]) -> Bool
+    ) async -> [WindowInfo]? {
         var previous: [Rect]?
         for _ in 0..<polls {
             let windows = windows(minimumLayer: 1)
-            if RevealCheck.isRevealed(windowIDs, in: windows, screen: screen) {
+            if condition(windows) {
                 let frames = windows.filter { windowIDs.contains($0.windowID) }
                     .sorted { $0.windowID < $1.windowID }.map(\.frame)
                 if frames == previous { return windows }

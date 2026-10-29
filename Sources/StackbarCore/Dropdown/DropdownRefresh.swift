@@ -5,8 +5,9 @@ import Foundation
 /// refresh reveals them: expand → wait until they are back → capture → collapse.
 ///
 /// Images younger than `maximumImageAge` are reused, so reopening the panel right away doesn't
-/// flash the menu bar again. Items behind the notch can't be captured even while expanded; the
-/// panel keeps their last image or shows their app's icon.
+/// flash the menu bar again. Items behind the notch are captured only when the capturer can
+/// (`capturesClippedItems`, the private capture); otherwise the panel keeps their last image or
+/// shows their app's icon.
 @MainActor
 public final class DropdownRefresh {
     public struct Report: Sendable, Equatable, CustomStringConvertible {
@@ -74,7 +75,7 @@ public final class DropdownRefresh {
                 let current = Dictionary(windows.map { ($0.windowID, $0) }, uniquingKeysWith: { first, _ in first })
                 let capturable = dropdown.compactMap { item -> MenuBarItem? in
                     guard let window = current[item.window.windowID],
-                          RevealCheck.isCapturable(window, screen: layout.screen)
+                          RevealCheck.isCapturable(window, screen: layout.screen, includingClipped: capturer.capturesClippedItems)
                     else { return nil }
                     var item = item
                     item.window = window
