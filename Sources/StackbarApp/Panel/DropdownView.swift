@@ -29,7 +29,10 @@ final class DropdownModel {
     var isEmpty = false
     /// Why the last refresh couldn't run, if it couldn't.
     var notice: String?
+    /// A capture is running (the update button is disabled meanwhile).
+    var isUpdating = false
     @ObservationIgnored var onSelect: (MenuBarItem) -> Void = { _ in }
+    @ObservationIgnored var onUpdate: () -> Void = {}
 
     /// All images in one column, as wide as the widest item.
     var imageColumnWidth: CGFloat { items.map(\.size.width).max() ?? 0 }
@@ -83,6 +86,24 @@ struct DropdownView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
+            }
+            if !model.items.isEmpty {
+                Divider().padding(.vertical, 3)
+                HStack {
+                    Spacer()
+                    // Images are captured once; capturing flashes the menu bar and shows macOS's
+                    // screen recording indicator, so refreshing them is the user's call.
+                    Button {
+                        model.onUpdate()
+                    } label: {
+                        Label(model.isUpdating ? "Updating…" : "Update Images", systemImage: "arrow.clockwise")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(model.isUpdating)
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 3)
             }
         }
         .padding(5)

@@ -14,7 +14,14 @@ private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category:
 final class ItemCapturer: ItemCapturing {
     private(set) var images: [UInt32: CGImage] = [:]
 
-    var capturesClippedItems: Bool { PrivateWindowCapture.isAvailable }
+    /// Debug → Use Private Capture (on by default): off, only ScreenCaptureKit is used, to compare
+    /// which route shows macOS's screen recording indicator.
+    static var usesPrivateCapture: Bool {
+        get { UserDefaults.standard.object(forKey: "UsePrivateCapture") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "UsePrivateCapture") }
+    }
+
+    var capturesClippedItems: Bool { Self.usesPrivateCapture && PrivateWindowCapture.isAvailable }
 
     func capture(_ items: [MenuBarItem]) async -> Set<UInt32> {
         guard !items.isEmpty, CGPreflightScreenCaptureAccess() else { return [] }
@@ -22,7 +29,7 @@ final class ItemCapturer: ItemCapturing {
         var remaining: [MenuBarItem] = []
         for item in items {
             let id = item.window.windowID
-            if let image = PrivateWindowCapture.image(of: id) {
+            if Self.usesPrivateCapture, let image = PrivateWindowCapture.image(of: id) {
                 images[id] = image
                 captured.insert(id)
             } else if item.window.isOnScreen {

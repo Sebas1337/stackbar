@@ -5,7 +5,7 @@ import Foundation
 /// dumps of the same items, so window ids match. Answers like the app's adapters would.
 @MainActor
 final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving {
-    let collapsedSnapshot: DiagnosticsSnapshot
+    var collapsedSnapshot: DiagnosticsSnapshot
     var expandedSnapshot: DiagnosticsSnapshot
 
     var isCollapsed: Bool

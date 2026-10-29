@@ -36,19 +36,35 @@ struct DropdownRefreshTests {
         #expect(report.isCollapsed)
     }
 
-    @Test func recentImagesAreReused() async throws {
+    /// Captured once: again only for new dropdown items or when forced (the update button).
+    @Test func capturesOnceUntilNewItemsOrForced() async throws {
         let bar = try FakeMenuBar(collapsed: true)
         let refresh = DropdownRefresh(driver: bar, capturer: bar)
-        let start = Date(timeIntervalSince1970: 1_800_000_000)
-        _ = await refresh.run(now: start)
-        let again = await refresh.run(now: start.addingTimeInterval(5))
-        #expect(again.outcome == .upToDate)
-        #expect(bar.captured.count == 1)
-        #expect(again.isCollapsed)
+        let sound: UInt32 = 18
+        let collapsed = bar.collapsedSnapshot
+        let expanded = bar.expandedSnapshot
+        bar.collapsedSnapshot.windows.removeAll { $0.windowID == sound }
+        bar.expandedSnapshot.windows.removeAll { $0.windowID == sound }
 
-        let later = await refresh.run(now: start.addingTimeInterval(DropdownRefresh.maximumImageAge + 1))
-        #expect(later.outcome == .refreshed)
+        #expect(await refresh.run().outcome == .refreshed)
+        let again = await refresh.run()
+        #expect(again.outcome == .upToDate)
+        #expect(again.isCollapsed)
+        #expect(bar.captured.count == 1)
+
+        // A new item in the dropdown: capture again.
+        bar.collapsedSnapshot = collapsed
+        bar.expandedSnapshot = expanded
+        #expect(await refresh.run().outcome == .refreshed)
         #expect(bar.captured.count == 2)
+
+        // An item leaving the dropdown needs no capture.
+        bar.collapsedSnapshot.windows.removeAll { $0.windowID == sound }
+        bar.expandedSnapshot.windows.removeAll { $0.windowID == sound }
+        #expect(await refresh.run().outcome == .upToDate)
+
+        #expect(await refresh.run(force: true).outcome == .refreshed)
+        #expect(bar.captured.count == 3)
     }
 
     @Test func failedCapturesAreReported() async throws {

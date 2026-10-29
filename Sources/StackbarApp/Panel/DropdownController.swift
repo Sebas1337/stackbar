@@ -32,6 +32,7 @@ final class DropdownController {
         hostingView = NSHostingView(rootView: DropdownView(model: model))
         panel = DropdownPanel(content: hostingView)
         model.onSelect = { [weak self] item in self?.forward(item) }
+        model.onUpdate = { [weak self] in self?.updateImages() }
     }
 
     var isOpen: Bool { panel.isVisible }
@@ -51,9 +52,21 @@ final class DropdownController {
         place()
         panel.makeKeyAndOrderFront(nil)
         installMonitors()
+        refreshItems(force: false)
+    }
+
+    /// The panel's update button: capture every item again.
+    func updateImages() {
+        refreshItems(force: true)
+    }
+
+    /// Finds the dropdown items and, when needed or `force`d, captures them (`DropdownRefresh`).
+    private func refreshItems(force: Bool) {
         enqueue { [weak self] in
             guard let self else { return }
-            let report = await refresh.run { [weak self] items in self?.show(items) }
+            model.isUpdating = true
+            defer { model.isUpdating = false }
+            let report = await refresh.run(force: force) { [weak self] items in self?.show(items) }
             if report.outcome == .noLayout {
                 // Last time's items may be gone; don't offer them.
                 show([])
@@ -89,7 +102,7 @@ final class DropdownController {
         close()
         enqueue { [weak self] in
             guard let self else { return }
-            let report = await ClickForwarding(driver: menuBar, presser: presser, capturer: capturer).run(item)
+            let report = await ClickForwarding(driver: menuBar, presser: presser, capturer: capturer, recaptures: false).run(item)
             if report.recaptured { show(model.items.map(\.menuBarItem)) }
             log(report.description)
         }

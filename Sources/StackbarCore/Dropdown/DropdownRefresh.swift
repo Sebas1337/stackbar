@@ -4,17 +4,18 @@ import Foundation
 /// (docs/PLAN.md, Decisions → Image refresh). Collapsed items can't be captured (S1), so a
 /// refresh reveals them: expand → wait until they are back → capture → collapse.
 ///
-/// Images younger than `maximumImageAge` are reused, so reopening the panel right away doesn't
-/// flash the menu bar again. Items behind the notch are captured only when the capturer can
-/// (`capturesClippedItems`, the private capture); otherwise the panel keeps their last image or
-/// shows their app's icon.
+/// Every capture flashes the menu bar and shows macOS's "Screen Recording is in use", so images
+/// are captured once (M3b, user decision 2026-10-29): on the first run, when new items appear in
+/// the dropdown, and when `force` asks for it (the panel's update button). Items behind the notch
+/// are captured only when the capturer can (`capturesClippedItems`, the private capture);
+/// otherwise the panel keeps their last image or shows their app's icon.
 @MainActor
 public final class DropdownRefresh {
     public struct Report: Sendable, Equatable, CustomStringConvertible {
         public enum Outcome: String, Sendable {
             /// Items revealed, captured and collapsed again.
             case refreshed
-            /// Images were recent enough; only collapsed.
+            /// Every dropdown item was captured before; only collapsed.
             case upToDate
             /// Nothing left of the divider: the menu bar is left as it is.
             case empty
@@ -38,13 +39,13 @@ public final class DropdownRefresh {
         }
     }
 
-    public static let maximumImageAge: TimeInterval = 10
     static let revealPolls = 30
     static let pollIntervalMilliseconds = 50
 
     private let driver: any MenuBarDriver
     private let capturer: any ItemCapturing
-    private var lastRefresh: (date: Date, windowIDs: Set<UInt32>)?
+    /// The dropdown items at the last capture.
+    private var capturedWindowIDs: Set<UInt32>?
 
     public init(driver: any MenuBarDriver, capturer: any ItemCapturing) {
         self.driver = driver
@@ -53,7 +54,7 @@ public final class DropdownRefresh {
 
     /// `itemsFound` gets the dropdown items, left to right, before anything is captured, so the
     /// panel can show them (with cached images) right away.
-    public func run(now: Date = Date(), itemsFound: ([MenuBarItem]) -> Void = { _ in }) async -> Report {
+    public func run(force: Bool = false, itemsFound: ([MenuBarItem]) -> Void = { _ in }) async -> Report {
         guard let layout = driver.layout(), layout.icon != nil, layout.divider != nil else {
             return Report(outcome: .noLayout, isCollapsed: driver.isCollapsed)
         }
@@ -65,7 +66,7 @@ public final class DropdownRefresh {
         }
         var report = Report(outcome: .refreshed, dropdown: dropdown.map(\.window.windowID), isCollapsed: false)
 
-        if let lastRefresh, lastRefresh.windowIDs == ids, now.timeIntervalSince(lastRefresh.date) < Self.maximumImageAge {
+        if !force, let capturedWindowIDs, ids.isSubset(of: capturedWindowIDs) {
             report.outcome = .upToDate
         } else {
             if driver.isCollapsed { driver.setCollapsed(false) }
@@ -83,7 +84,7 @@ public final class DropdownRefresh {
                 }
                 report.captured = capturable.isEmpty ? [] : await capturer.capture(capturable)
                 report.notCapturable = report.dropdown.filter { !report.captured.contains($0) }
-                lastRefresh = (now, ids)
+                capturedWindowIDs = ids
             } else {
                 report.outcome = .revealTimedOut
                 report.notCapturable = report.dropdown

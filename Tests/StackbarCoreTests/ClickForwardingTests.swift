@@ -124,6 +124,14 @@ struct ClickForwardingTests {
         #expect(report.isCollapsed)
     }
 
+    @Test func noRecaptureWhenDisabled() async throws {
+        let (bar, _, item) = try Self.setUp()
+        let report = await ClickForwarding(driver: bar, presser: bar, capturer: bar, recaptures: false).run(item)
+        #expect(report.outcome == .closed)
+        #expect(!report.recaptured)
+        #expect(bar.captured.isEmpty)
+    }
+
     @Test func pressResultsFromAXErrors() {
         #expect(PressResult(axError: 0) == .success)
         #expect(PressResult(axError: -25204) == .cannotComplete)

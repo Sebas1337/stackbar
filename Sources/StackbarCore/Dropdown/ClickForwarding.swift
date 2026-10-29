@@ -72,6 +72,7 @@ public struct ClickForwarding {
     private let presser: any ItemPressing
     private let capturer: any ItemCapturing
     private let mover: (any ItemMoving)?
+    private let recaptures: Bool
     private let timing: Timing
 
     public init(
@@ -79,12 +80,14 @@ public struct ClickForwarding {
         presser: any ItemPressing,
         capturer: any ItemCapturing,
         mover: (any ItemMoving)? = nil,
+        recaptures: Bool = true,
         timing: Timing = Timing()
     ) {
         self.driver = driver
         self.presser = presser
         self.capturer = capturer
         self.mover = mover
+        self.recaptures = recaptures
         self.timing = timing
     }
 
@@ -155,7 +158,7 @@ public struct ClickForwarding {
             }
         }
 
-        if let window = driver.windows(minimumLayer: 1).first(where: { $0.windowID == id }),
+        if recaptures, let window = driver.windows(minimumLayer: 1).first(where: { $0.windowID == id }),
            RevealCheck.isCapturable(window, screen: layout.screen, includingClipped: capturer.capturesClippedItems) {
             var current = target
             current.window = window
