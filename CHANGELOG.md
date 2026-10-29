@@ -6,6 +6,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-29
+
 ### Added
 - Dropdown panel: click the Stackbar icon to see the items left of the divider in a panel under
   the icon, as images of how they look in the menu bar (the app's icon for items behind the
