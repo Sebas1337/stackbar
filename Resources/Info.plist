@@ -23,6 +23,7 @@
 	<string>0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<!-- Keep in sync with `platforms` in Package.swift; scripts/build-app.sh checks it. -->
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
 	<key>LSUIElement</key>

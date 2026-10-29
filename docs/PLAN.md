@@ -203,9 +203,11 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
 
 **M5 — Polish & release (v1.0.0)**
 - Launch at login (`SMAppService`), global hotkey, optional auto-collapse timer
-- Developer ID signing, notarization, DMG, GitHub Release workflow; update mechanism (TBD)
-- Done when: the DMG from GitHub Releases opens on a clean Mac without Gatekeeper warnings and
-  launch at login works.
+- Release signing per the Distribution decision (Developer ID + notarization, or a stable
+  self-signed certificate), DMG, GitHub Release workflow; update mechanism (TBD)
+- Done when: the DMG from GitHub Releases opens on a clean Mac (without Gatekeeper warnings if
+  Developer ID was chosen; with exactly the one documented "Open Anyway" step otherwise),
+  permissions survive an update, and launch at login works.
 
 ## Risks / open questions
 

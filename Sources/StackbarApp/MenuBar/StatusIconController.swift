@@ -11,9 +11,13 @@ final class StatusIconController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.autosaveName = "StackbarIcon"
         if let button = statusItem.button {
-            let image = NSImage(systemSymbolName: "rectangle.stack", accessibilityDescription: "Stackbar")
-            image?.isTemplate = true
-            button.image = image
+            if let image = NSImage(systemSymbolName: "rectangle.stack", accessibilityDescription: "Stackbar") {
+                image.isTemplate = true
+                button.image = image
+            } else {
+                // Never leave an empty, unclickable item: an agent app has no other way to quit.
+                button.title = "SB"
+            }
         }
         statusItem.menu = Self.makeMenu(buildInfo: buildInfo)
     }

@@ -15,14 +15,22 @@ if security find-identity -v -p codesigning | grep -qF "\"$name\""; then
   echo "Signing identity \"$name\" already exists."
   exit 0
 fi
-if security find-certificate -c "$name" "$keychain" >/dev/null 2>&1; then
-  echo "error: a certificate \"$name\" exists but is not a valid signing identity." \
-    "Delete it in Keychain Access and run this again." >&2
-  exit 1
-fi
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+
+trust() {
+  echo "Trusting the certificate for code signing (macOS asks for your password)..."
+  security add-trusted-cert -r trustRoot -p codeSign -k "$keychain" "$1"
+  security find-identity -v -p codesigning | grep -F "\"$name\""
+  echo "Done. 'make app' now signs with \"$name\"."
+}
+
+# Imported earlier but not trusted yet (e.g. the password prompt was cancelled): finish that.
+if security find-certificate -c "$name" -p "$keychain" > "$tmp/existing.pem" 2>/dev/null; then
+  trust "$tmp/existing.pem"
+  exit 0
+fi
 
 cat > "$tmp/cert.conf" <<CONF
 [req]
@@ -50,8 +58,4 @@ pass="$("$openssl" rand -hex 16)"
   -name "$name" -out "$tmp/identity.p12" -passout "pass:$pass"
 
 security import "$tmp/identity.p12" -k "$keychain" -P "$pass" -T /usr/bin/codesign
-echo "Trusting the certificate for code signing (macOS asks for your password)..."
-security add-trusted-cert -r trustRoot -p codeSign -k "$keychain" "$tmp/cert.pem"
-
-security find-identity -v -p codesigning | grep -F "\"$name\""
-echo "Done. 'make app' now signs with \"$name\"."
+trust "$tmp/cert.pem"
