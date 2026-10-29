@@ -1,0 +1,140 @@
+import Foundation
+import Testing
+@testable import StackbarCore
+
+/// Arranging the m2 menu bar (expanded: Battery and Wi-Fi are bar items, Sound a dropdown item,
+/// Bluetooth a dropdown item behind the notch, Clock immovable).
+@MainActor
+struct ArrangementTests {
+    static let battery: UInt32 = 4777
+    static let wifi: UInt32 = 19
+    static let sound: UInt32 = 18
+    static let bluetooth: UInt32 = 16
+    static let clock: UInt32 = 17
+
+    static func config(_ bar: FakeMenuBar, _ assignments: [UInt32: Section]) throws -> StackbarConfig {
+        let items = try #require(MenuBarLayout.classify(bar.expandedSnapshot)).items
+        var config = StackbarConfig()
+        for (id, section) in assignments.sorted(by: { $0.key < $1.key }) {
+            let identity = try #require(items.first { $0.window.windowID == id }?.identity)
+            config.assign(identity, to: section, name: "\(id)")
+        }
+        return config
+    }
+
+    static func section(of id: UInt32, in bar: FakeMenuBar) -> Section? {
+        MenuBarLayout.classify(bar.expandedSnapshot)?.items.first { $0.window.windowID == id }?.section
+    }
+
+    // MARK: Plan
+
+    @Test func misplacedIgnoresUnassignedItems() throws {
+        let bar = try FakeMenuBar(collapsed: false)
+        let layout = try #require(bar.layout())
+        let config = try Self.config(bar, [Self.battery: .dropdown, Self.wifi: .bar, Self.sound: .dropdown])
+        #expect(ArrangementPlan.misplaced(in: layout, config: config).map(\.window.windowID) == [Self.battery])
+    }
+
+    @Test func nextMoveDropsNextToTheDivider() throws {
+        let bar = try FakeMenuBar(collapsed: false)
+        let layout = try #require(bar.layout())
+        let divider = try #require(layout.divider)
+        let config = try Self.config(bar, [Self.wifi: .dropdown, Self.battery: .dropdown, Self.sound: .bar])
+
+        // Sound and Battery are both next to the divider; Wi-Fi further away comes later.
+        let first = try #require(ArrangementPlan.nextMove(in: layout, config: config))
+        #expect([Self.sound, Self.battery].contains(first.item.window.windowID))
+        let toBar = try #require(ArrangementPlan.nextMove(in: layout, config: config, skipping: [Self.battery]))
+        #expect(toBar.item.window.windowID == Self.sound)
+        #expect(toBar.section == .bar)
+        #expect(toBar.point == .init(x: divider.frame.maxX + 4, y: divider.frame.midY))
+        let toDropdown = try #require(ArrangementPlan.nextMove(in: layout, config: config, skipping: [Self.sound]))
+        #expect(toDropdown.item.window.windowID == Self.battery)
+        #expect(toDropdown.point == .init(x: divider.frame.minX - 4, y: divider.frame.midY))
+        #expect(ArrangementPlan.nextMove(in: layout, config: config, skipping: [Self.sound, Self.battery])?.item.window.windowID == Self.wifi)
+    }
+
+    @Test func blockersForNotchImmovableAndCollapsed() throws {
+        let expanded = try #require(MenuBarLayout.classify(try FixtureTests.load("m2-mbp16-macos26-expanded.json")))
+        let collapsed = try #require(MenuBarLayout.classify(try FixtureTests.load("m2-mbp16-macos26-collapsed.json")))
+        func item(_ id: UInt32, _ layout: MenuBarLayout) throws -> MenuBarItem {
+            try #require(layout.items.first { $0.window.windowID == id })
+        }
+        #expect(ArrangementPlan.blocker(of: try item(Self.bluetooth, expanded)) == .clipped)
+        #expect(ArrangementPlan.blocker(of: try item(Self.clock, expanded)) == .immovable)
+        #expect(ArrangementPlan.blocker(of: try item(Self.sound, expanded)) == nil)
+        #expect(ArrangementPlan.blocker(of: try item(Self.sound, collapsed)) == .offScreen)
+    }
+
+    // MARK: Sequence
+
+    @Test func nothingMisplacedLeavesTheMenuBarAlone() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.sound: .dropdown, Self.battery: .bar])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.outcome == .upToDate)
+        #expect(bar.collapseCalls.isEmpty)
+        #expect(bar.moves.isEmpty)
+    }
+
+    @Test func movesBothWaysAndCollapsesAgain() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.sound: .bar, Self.battery: .dropdown])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.outcome == .arranged)
+        #expect(Set(report.moved) == [Self.sound, Self.battery])
+        #expect(report.failed.isEmpty)
+        #expect(report.blocked.isEmpty)
+        #expect(bar.collapseCalls == [false, true])
+        #expect(report.isCollapsed)
+        #expect(Self.section(of: Self.sound, in: bar) == .bar)
+        #expect(Self.section(of: Self.battery, in: bar) == .dropdown)
+    }
+
+    @Test func expandedStaysExpanded() async throws {
+        let bar = try FakeMenuBar(collapsed: false)
+        let config = try Self.config(bar, [Self.battery: .dropdown])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.moved == [Self.battery])
+        #expect(bar.collapseCalls.isEmpty)
+        #expect(!report.isCollapsed)
+    }
+
+    @Test func aMoveThatDoesNotLandIsRetriedOnceThenFails() async throws {
+        let bar = try FakeMenuBar(collapsed: false)
+        bar.failingMoves = [Self.battery]
+        let config = try Self.config(bar, [Self.battery: .dropdown, Self.sound: .bar])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.failed == [Self.battery])
+        #expect(report.moved == [Self.sound])
+        #expect(bar.moves.filter { $0.0 == Self.battery }.count == 2)
+    }
+
+    @Test func itemsBehindTheNotchAreBlockedAndNotRetriedUnlessForced() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.bluetooth: .bar])
+        let arrangement = Arrangement(driver: bar, mover: bar)
+
+        let first = await arrangement.run(config: config)
+        #expect(first.outcome == .arranged)
+        #expect(first.blocked == [Self.bluetooth: .clipped])
+        #expect(bar.moves.isEmpty)
+        #expect(bar.collapseCalls == [false, true])
+
+        let again = await arrangement.run(config: config)
+        #expect(again.outcome == .upToDate)
+        #expect(bar.collapseCalls == [false, true])
+
+        let forced = await arrangement.run(config: config, force: true)
+        #expect(forced.outcome == .arranged)
+        #expect(bar.collapseCalls == [false, true, false, true])
+    }
+
+    @Test func immovableItemsNeverExpand() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.clock: .dropdown])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config, force: true)
+        #expect(report.outcome == .upToDate)
+        #expect(bar.collapseCalls.isEmpty)
+    }
+}

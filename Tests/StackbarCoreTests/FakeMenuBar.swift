@@ -4,7 +4,7 @@ import Foundation
 /// The notched MacBook Pro's menu bar from the m2 fixtures: collapsed and expanded are real
 /// dumps of the same items, so window ids match. Answers like the app's adapters would.
 @MainActor
-final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
+final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving {
     var collapsedSnapshot: DiagnosticsSnapshot
     var expandedSnapshot: DiagnosticsSnapshot
 
@@ -23,6 +23,10 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     var menuReads = 0
     private var remainingMenuReads = 0
 
+    /// Every ⌘-drag: window id and drop point.
+    var moves: [(UInt32, ArrangementPlan.Point)] = []
+    /// Window ids that don't move when dragged.
+    var failingMoves: Set<UInt32> = []
 
     var capturesClippedItems = false
     var captured: [[UInt32]] = []
@@ -91,6 +95,18 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     func click(at frame: Rect) async {
         clicked.append(frame)
         openMenu()
+    }
+
+    /// Lands the window just past the drop point in the expanded snapshot, like a real drop next
+    /// to the divider. The collapsed snapshot isn't updated: tests check the expanded layout.
+    func move(_ item: MenuBarItem, to point: ArrangementPlan.Point) async {
+        moves.append((item.window.windowID, point))
+        guard !failingMoves.contains(item.window.windowID),
+              let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == item.window.windowID }),
+              let divider = layout()?.divider
+        else { return }
+        let width = expandedSnapshot.windows[index].frame.width
+        expandedSnapshot.windows[index].frame.x = point.x < divider.frame.maxX ? point.x - width : point.x
     }
 
     private func openMenu() {

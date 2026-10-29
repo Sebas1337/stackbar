@@ -2,8 +2,8 @@ import AppKit
 import ApplicationServices
 import StackbarCore
 
-/// Synthesized ⌘-drags of items, cursor restored afterwards (Debug spikes S3/S9; M4 builds its
-/// moves on this). Needs Accessibility.
+/// Synthesized ⌘-drags of items, cursor restored afterwards (Debug spikes S3/S9; `CommandDragMover`
+/// runs M4's moves with `visible`). Needs Accessibility.
 ///
 /// - `visible`: plain events through the HID tap at on-screen positions (S3).
 /// - `windowTargeted`: events through the session tap that name the dragged window (down and

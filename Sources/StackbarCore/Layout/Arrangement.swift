@@ -1,0 +1,133 @@
+import Foundation
+
+/// Puts misplaced items on their assigned side of the divider (docs/PLAN.md "How it works"
+/// step 5): expand → for each move: ⌘-drag, re-enumerate, verify, retry once → restore the
+/// collapsed state. Nothing misplaced: the menu bar isn't touched.
+///
+/// Items behind the notch can't be grabbed (`ArrangementPlan.Blocker.clipped`). They are
+/// remembered, so an automatic re-apply doesn't expand the bar again just to find them blocked;
+/// a `force`d run (the user assigning in Settings) tries them again.
+@MainActor
+public final class Arrangement {
+    public struct Report: Sendable, Equatable, CustomStringConvertible {
+        public enum Outcome: String, Sendable {
+            /// Moves were tried (see `moved`, `failed`, `blocked`).
+            case arranged
+            /// Nothing misplaced (or only items blocked last time): nothing was done.
+            case upToDate
+            /// No active display, icon or divider: nothing was done.
+            case noLayout
+            /// The dropdown items didn't come back on-screen after expanding; collapsed again.
+            case revealTimedOut
+        }
+
+        public var outcome: Outcome
+        public var moved: [UInt32] = []
+        /// Moved twice without arriving on the other side.
+        public var failed: [UInt32] = []
+        /// Still misplaced and impossible to move.
+        public var blocked: [UInt32: ArrangementPlan.Blocker] = [:]
+        public var isCollapsed: Bool
+
+        public var description: String {
+            let blocked = blocked.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value.rawValue)" }
+            return "Arrangement: \(outcome.rawValue), moved \(moved.map(String.init)), failed \(failed.map(String.init)), "
+                + "blocked \(blocked), collapsed=\(isCollapsed)"
+        }
+    }
+
+    public struct Timing: Sendable {
+        public var pollIntervalMilliseconds = 50
+        public var revealPolls = 30
+        /// How long a dragged item has to land on the other side: 1.5 s.
+        public var movePolls = 30
+        public var attemptsPerItem = 2
+
+        public init() {}
+    }
+
+    private let driver: any MenuBarDriver
+    private let mover: any ItemMoving
+    private let timing: Timing
+    /// Identities found blocked by the last run.
+    private var blocked: Set<ItemIdentity> = []
+
+    public init(driver: any MenuBarDriver, mover: any ItemMoving, timing: Timing = Timing()) {
+        self.driver = driver
+        self.mover = mover
+        self.timing = timing
+    }
+
+    /// True when `layout` has misplaced items worth a run (what an automatic re-apply checks
+    /// before waiting for the user to be idle).
+    public func needsRun(_ layout: MenuBarLayout, config: StackbarConfig, force: Bool = false) -> Bool {
+        !ArrangementPlan.misplaced(in: layout, config: config).filter { item in
+            !item.isImmovable && (force || item.identity.map { !blocked.contains($0) } ?? false)
+        }.isEmpty
+    }
+
+    public func run(config: StackbarConfig, force: Bool = false) async -> Report {
+        let wasCollapsed = driver.isCollapsed
+        var report = Report(outcome: .noLayout, isCollapsed: wasCollapsed)
+        guard let start = driver.layout(), start.divider != nil else { return report }
+        guard needsRun(start, config: config, force: force) else {
+            report.outcome = .upToDate
+            return report
+        }
+        func finish(_ outcome: Report.Outcome) -> Report {
+            if wasCollapsed { driver.setCollapsed(true) }
+            report.outcome = outcome
+            report.isCollapsed = driver.isCollapsed
+            return report
+        }
+
+        if wasCollapsed {
+            driver.setCollapsed(false)
+            let dropdown = Set(start.dropdown.map(\.window.windowID))
+            guard await driver.waitUntilRevealed(
+                dropdown, on: start.screen, polls: timing.revealPolls, intervalMilliseconds: timing.pollIntervalMilliseconds
+            ) != nil else { return finish(.revealTimedOut) }
+        }
+
+        var attempts: [UInt32: Int] = [:]
+        var done: Set<UInt32> = []
+        var last = start
+        while let layout = driver.layout() {
+            last = layout
+            guard let move = ArrangementPlan.nextMove(in: layout, config: config, skipping: done),
+                  let divider = layout.divider
+            else { break }
+            let id = move.item.window.windowID
+            await mover.move(move.item, to: move.point)
+            attempts[id, default: 0] += 1
+            let landed = await driver.waitUntilSettled(
+                [id], polls: timing.movePolls, intervalMilliseconds: timing.pollIntervalMilliseconds
+            ) { windows in
+                Self.isInSection(move.section, id, dividerID: divider.windowID, in: windows)
+            }
+            if landed != nil {
+                report.moved.append(id)
+                done.insert(id)
+            } else if attempts[id, default: 0] >= timing.attemptsPerItem {
+                report.failed.append(id)
+                done.insert(id)
+            }
+        }
+
+        let stillBlocked = ArrangementPlan.misplaced(in: last, config: config).compactMap { item in
+            ArrangementPlan.blocker(of: item).map { (item, $0) }
+        }
+        report.blocked = Dictionary(stillBlocked.map { ($0.0.window.windowID, $0.1) }) { first, _ in first }
+        blocked = Set(stillBlocked.compactMap(\.0.identity))
+        return finish(.arranged)
+    }
+
+    /// The item's window is on `section`'s side of the divider (the window's right edge stays
+    /// put, also collapsed; see `MenuBarLayout.classify`).
+    static func isInSection(_ section: Section, _ id: UInt32, dividerID: UInt32, in windows: [WindowInfo]) -> Bool {
+        guard let item = windows.first(where: { $0.windowID == id }),
+              let divider = windows.first(where: { $0.windowID == dividerID })
+        else { return false }
+        return (item.frame.midX < divider.frame.maxX) == (section == .dropdown)
+    }
+}

@@ -33,6 +33,7 @@ final class DropdownModel {
     var isUpdating = false
     @ObservationIgnored var onSelect: (MenuBarItem) -> Void = { _ in }
     @ObservationIgnored var onUpdate: () -> Void = {}
+    @ObservationIgnored var onSettings: () -> Void = {}
 
     /// All images in one column, as wide as the widest item.
     var imageColumnWidth: CGFloat { items.map(\.size.width).max() ?? 0 }
@@ -44,8 +45,7 @@ final class DropdownModel {
             return "Stackbar needs Accessibility to find the dropdown items and open their menus."
         }
         if isEmpty {
-            return "No items in the dropdown yet. Right-click the Stackbar icon → Show All Items, "
-                + "then ⌘-drag items to the left of the divider (the slanted line)."
+            return "No items in the dropdown yet. Open Settings and drag items into the Dropdown list."
         }
         if !permissions.screenRecording {
             return "Grant Screen Recording to see the items' current images."
@@ -87,10 +87,16 @@ struct DropdownView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
             }
-            if !model.items.isEmpty {
-                Divider().padding(.vertical, 3)
-                HStack {
-                    Spacer()
+            Divider().padding(.vertical, 3)
+            HStack {
+                Button {
+                    model.onSettings()
+                } label: {
+                    Label("Settings…", systemImage: "gearshape").font(.caption)
+                }
+                .buttonStyle(.borderless)
+                Spacer()
+                if !model.items.isEmpty {
                     // Images are captured once; capturing flashes the menu bar and shows macOS's
                     // screen recording indicator, so refreshing them is the user's call.
                     Button {
@@ -102,9 +108,9 @@ struct DropdownView: View {
                     .buttonStyle(.borderless)
                     .disabled(model.isUpdating)
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 3)
             }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 3)
         }
         .padding(5)
         .frame(minWidth: DropdownModel.minimumWidth, maxWidth: DropdownModel.maximumWidth, alignment: .leading)

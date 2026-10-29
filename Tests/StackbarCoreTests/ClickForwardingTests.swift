@@ -68,6 +68,15 @@ struct ClickForwardingTests {
         #expect(report.isCollapsed)
     }
 
+    @Test func windowsOfOtherProcessesAreReportedWhenNothingOpened() async throws {
+        let (bar, forwarding, item) = try Self.setUp()
+        bar.menu = FakeMenuBar.menuWindow(pid: 99_999)
+        bar.menuReads = 100
+        let report = await forwarding.run(item)
+        #expect(report.outcome == .nothingOpened)
+        #expect(report.otherOpened == [90_000])
+    }
+
     @Test func menuThatStaysOpenTimesOut() async throws {
         let (bar, _, item) = try Self.setUp()
         var timing = ClickForwarding.Timing()

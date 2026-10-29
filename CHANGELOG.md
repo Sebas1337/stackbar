@@ -6,6 +6,11 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Settings window (icon menu → Settings…, or the gear in the panel): drag items between the Menu
+  Bar and Dropdown lists and Stackbar moves them in the menu bar for you. The cursor is hidden
+  while it does. Your choices are saved.
+
 ## [0.5.0] - 2026-10-29
 
 ### Changed

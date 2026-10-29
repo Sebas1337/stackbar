@@ -32,11 +32,14 @@ public struct ClickForwarding {
         public var usedPanelAX = false
         /// The windows that opened: the item's menu or popover.
         public var opened: [UInt32] = []
+        /// Nothing of the app opened: the windows other processes showed meanwhile (a menu owned by a
+        /// helper process would show up here; window 64 in the m3b dumps).
+        public var otherOpened: [UInt32] = []
         public var isCollapsed: Bool
 
         public var description: String {
             "Click forwarding window \(windowID): \(outcome.rawValue), press \(press.map { "\($0)" } ?? "–"), "
-                + "clicked=\(clicked), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), collapsed=\(isCollapsed)"
+                + "clicked=\(clicked), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), other \(otherOpened.map(String.init)), collapsed=\(isCollapsed)"
         }
     }
 
@@ -112,7 +115,13 @@ public struct ClickForwarding {
         }
         report.opened = opened.map(\.windowID)
 
-        guard !opened.isEmpty else { return finish(.nothingOpened) }
+        guard !opened.isEmpty else {
+            let beforeIDs = Set(before.map(\.windowID))
+            report.otherOpened = driver.visibleWindows()
+                .filter { !beforeIDs.contains($0.windowID) && $0.ownerPID != pid && $0.layer != WindowInfo.statusWindowLayer }
+                .map(\.windowID)
+            return finish(.nothingOpened)
+        }
         for _ in 0..<timing.closePolls {
             await driver.sleep(milliseconds: timing.closeIntervalMilliseconds)
             if !MenuWindows.isStillOpen(opened, in: driver.visibleWindows()) {

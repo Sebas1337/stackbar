@@ -99,3 +99,11 @@ extension MenuBarDriver {
         return nil
     }
 }
+
+/// Moves an item with a synthesized ⌘-drag (S3), cursor restored afterwards. Needs the item
+/// on-screen (expanded, not behind the notch).
+@MainActor
+public protocol ItemMoving: AnyObject {
+    /// Drags `item` from its center to `point` (global, top-left origin).
+    func move(_ item: MenuBarItem, to point: ArrangementPlan.Point) async
+}
