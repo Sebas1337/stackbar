@@ -125,7 +125,7 @@ final class DropdownController {
             return DropdownModel.Item(
                 menuBarItem: item,
                 size: size,
-                image: capturer.images[item.window.windowID].map { NSImage(cgImage: $0, size: size) },
+                image: capturer.image(for: item).map { NSImage(cgImage: $0, size: size) },
                 appIcon: app?.icon,
                 name: Self.name(of: item, appName: app?.localizedName)
             )

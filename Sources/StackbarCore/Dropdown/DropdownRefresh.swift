@@ -4,11 +4,12 @@ import Foundation
 /// (docs/PLAN.md, Decisions → Image refresh). Collapsed items can't be captured (S1), so a
 /// refresh reveals them: expand → wait until they are back → capture → collapse.
 ///
-/// Every capture flashes the menu bar and shows macOS's "Screen Recording is in use", so images
-/// are captured once (M3b, user decision 2026-10-29): on the first run, when new items appear in
-/// the dropdown, and when `force` asks for it (the panel's update button). Items behind the notch
-/// are captured only when the capturer can (`capturesClippedItems`, the private capture);
-/// otherwise the panel keeps their last image or shows their app's icon.
+/// Images are captured once (M3b, user decisions 2026-10-29): a refresh only runs for dropdown
+/// items without an image (the capturer keeps them, also across launches) that weren't tried
+/// before, or when `force` asks for it (the panel's Update Images). Revealing flashes the menu
+/// bar, so then every on-screen item is captured (ScreenCaptureKit, no indicator). Items behind
+/// the notch need the private capture, which shows macOS's "Screen Recording is in use": they
+/// are captured only when they have no image yet, or when forced.
 @MainActor
 public final class DropdownRefresh {
     public struct Report: Sendable, Equatable, CustomStringConvertible {
@@ -28,7 +29,8 @@ public final class DropdownRefresh {
         public var outcome: Outcome
         public var dropdown: [UInt32] = []
         public var captured: Set<UInt32> = []
-        /// Dropdown items that couldn't be captured: behind the notch (clipped), or gone.
+        /// Dropdown items not captured this time: behind the notch (no private capture, or an image
+        /// is kept already), or gone.
         public var notCapturable: [UInt32] = []
         /// The menu bar is collapsed afterwards.
         public var isCollapsed: Bool
@@ -44,8 +46,9 @@ public final class DropdownRefresh {
 
     private let driver: any MenuBarDriver
     private let capturer: any ItemCapturing
-    /// The dropdown items at the last capture.
-    private var capturedWindowIDs: Set<UInt32>?
+    /// Dropdown items a refresh already tried: without an image they are behind the notch with no
+    /// private capture, or failed. They don't make the next open flash again.
+    private var attempted: Set<UInt32> = []
 
     public init(driver: any MenuBarDriver, capturer: any ItemCapturing) {
         self.driver = driver
@@ -66,7 +69,10 @@ public final class DropdownRefresh {
         }
         var report = Report(outcome: .refreshed, dropdown: dropdown.map(\.window.windowID), isCollapsed: false)
 
-        if !force, let capturedWindowIDs, ids.isSubset(of: capturedWindowIDs) {
+        let needsCapture = force || dropdown.contains {
+            !attempted.contains($0.window.windowID) && !capturer.hasImage(of: $0)
+        }
+        if !needsCapture {
             report.outcome = .upToDate
         } else {
             if driver.isCollapsed { driver.setCollapsed(false) }
@@ -78,13 +84,15 @@ public final class DropdownRefresh {
                     guard let window = current[item.window.windowID],
                           RevealCheck.isCapturable(window, screen: layout.screen, includingClipped: capturer.capturesClippedItems)
                     else { return nil }
+                    // Behind the notch: only the private capture, with its indicator.
+                    if !window.isOnScreen, !force, capturer.hasImage(of: item) { return nil }
                     var item = item
                     item.window = window
                     return item
                 }
                 report.captured = capturable.isEmpty ? [] : await capturer.capture(capturable)
                 report.notCapturable = report.dropdown.filter { !report.captured.contains($0) }
-                capturedWindowIDs = ids
+                attempted.formUnion(ids)
             } else {
                 report.outcome = .revealTimedOut
                 report.notCapturable = report.dropdown

@@ -37,6 +37,8 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     var capturesClippedItems = false
     var captured: [[UInt32]] = []
     var capturedWhileCollapsed: [Bool] = []
+    /// Items with a kept image (captured, or loaded from an earlier launch).
+    var imageIDs: Set<UInt32> = []
     /// Window ids whose capture fails.
     var failingCaptures: Set<UInt32> = []
 
@@ -94,7 +96,13 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
         let ids = items.map(\.window.windowID)
         captured.append(ids)
         capturedWhileCollapsed.append(isCollapsed)
-        return Set(ids).subtracting(failingCaptures)
+        let succeeded = Set(ids).subtracting(failingCaptures)
+        imageIDs.formUnion(succeeded)
+        return succeeded
+    }
+
+    func hasImage(of item: MenuBarItem) -> Bool {
+        imageIDs.contains(item.window.windowID)
     }
 
     func press(_ item: MenuBarItem) -> PressResult {

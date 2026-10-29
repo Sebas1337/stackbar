@@ -27,6 +27,8 @@ public protocol ItemCapturing: AnyObject {
     var capturesClippedItems: Bool { get }
     /// Returns the window ids that were captured.
     func capture(_ items: [MenuBarItem]) async -> Set<UInt32>
+    /// True when an image of the item is kept, from this launch or an earlier one.
+    func hasImage(of item: MenuBarItem) -> Bool
 }
 
 /// Moves items with a synthesized ⌘-drag (S3, S9).
