@@ -6,6 +6,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-29
+
 ### Added
 - Stackbar icon in the menu bar with a version line and Quit (requires macOS 26).
 - Build tooling: `make app` / `make run` bundle and sign `Stackbar.app`, `make cert` creates a

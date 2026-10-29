@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **reviewed 2026-10-29. M0 (foundation) in progress.**
+Status: **M0 done (v0.1.0, 2026-10-29). Next: M1 (feasibility spike).**
 
 ## Goal
 
