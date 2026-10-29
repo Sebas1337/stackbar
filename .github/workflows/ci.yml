@@ -5,8 +5,12 @@ name: CI
 # StackbarApp outside the host Mac.
 # Push only: every PR here comes from a branch in this repo, so its commits are already covered
 # (and a pull_request trigger would run each commit twice).
+# Branches only: a tag push runs release.yml, which tests and builds the same commit itself.
+# Docs-only commits skip CI (a release commit touches VERSION, so it still runs).
 on:
   push:
+    branches: ["**"]
+    paths-ignore: ["**.md", "docs/**"]
   workflow_dispatch:
 
 concurrency:
