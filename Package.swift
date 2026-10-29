@@ -6,7 +6,7 @@ var products: [Product] = [
 ]
 
 var targets: [Target] = [
-    .target(name: "StackbarCore"),
+    .target(name: "StackbarCore", exclude: ["CLAUDE.md"]),
     .testTarget(name: "StackbarCoreTests", dependencies: ["StackbarCore"]),
 ]
 
@@ -14,7 +14,9 @@ var targets: [Target] = [
 // and `swift test` green in the Linux devcontainer. No other platform conditionals allowed.
 #if os(macOS)
 products.append(.executable(name: "Stackbar", targets: ["StackbarApp"]))
-targets.append(.executableTarget(name: "StackbarApp", dependencies: ["StackbarCore"]))
+targets.append(
+    .executableTarget(name: "StackbarApp", dependencies: ["StackbarCore"], exclude: ["CLAUDE.md"])
+)
 #endif
 
 let package = Package(
