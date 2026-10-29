@@ -70,6 +70,7 @@ public struct MenuBarLayout: Sendable, Equatable {
             return MenuBarItem(
                 window: window,
                 bundleID: item.bundleID,
+                ax: item.axItem,
                 identity: identities[window.windowID],
                 section: isDropdown ? .dropdown : .bar,
                 isClipped: !window.isOnScreen && NotchGeometry.overlapsNotch(window.frame, on: screen),
