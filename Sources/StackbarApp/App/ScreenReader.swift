@@ -24,6 +24,12 @@ enum ScreenReader {
         }
     }
 
+    /// The inverse of `flip`: a top-left-origin `Rect` as an AppKit frame.
+    static func appKitFrame(_ rect: Rect) -> NSRect {
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        return NSRect(x: rect.minX, y: primaryHeight - rect.maxY, width: rect.width, height: rect.height)
+    }
+
     static func flip(_ rect: NSRect, _ primaryHeight: CGFloat) -> Rect {
         Rect(
             x: rect.minX,

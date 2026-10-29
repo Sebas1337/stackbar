@@ -4,9 +4,9 @@ import StackbarCore
 
 private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category: "menubar")
 
-/// Stackbar's two status items: the **icon** and, left of it, the **divider**. Clicking the icon
-/// collapses (pushes the items left of the divider off-screen) or expands. Always starts
-/// expanded (docs/PLAN.md, Decisions → First run).
+/// Stackbar's two status items: the **icon** and, left of it, the **divider**. Collapsed, the items
+/// left of the divider are pushed off-screen. Always starts expanded (docs/PLAN.md, Decisions →
+/// First run). The icon's click handler is set by `AppDelegate` (it opens the dropdown panel).
 @MainActor
 final class MenuBarController {
     let icon: StatusIconController
@@ -16,7 +16,6 @@ final class MenuBarController {
         // The icon first: the divider is seeded left of the icon's saved position.
         icon = StatusIconController(buildInfo: buildInfo)
         divider = DividerController(iconAutosaveName: StackbarItemsInfo.iconAutosaveName)
-        icon.onClick = { [weak self] in self?.toggleCollapsed() }
     }
 
     var isCollapsed: Bool { divider.isCollapsed }
@@ -80,5 +79,26 @@ final class MenuBarController {
                 """
         NSApp.activate()
         alert.runModal()
+    }
+}
+
+/// The live menu bar for Core's dropdown sequences (`DropdownRefresh`, `ClickForwarding`).
+extension MenuBarController: MenuBarDriver {
+    func layout() -> MenuBarLayout? {
+        let windows = WindowListReader.windows()
+        return MenuBarLayout.classify(
+            screens: ScreenReader.screens(),
+            windows: windows,
+            axItems: AXMenuBarReader.items().map(\.info),
+            stackbarItems: stackbarItems(in: windows)
+        )
+    }
+
+    func windows(minimumLayer: Int) -> [WindowInfo] {
+        WindowListReader.windows(minimumLayer: minimumLayer)
+    }
+
+    func sleep(milliseconds: Int) async {
+        try? await Task.sleep(for: .milliseconds(milliseconds))
     }
 }

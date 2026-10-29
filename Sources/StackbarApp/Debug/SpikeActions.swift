@@ -20,13 +20,7 @@ enum SpikeActions {
             guard let scWindow = content.windows.first(where: { $0.windowID == window.windowID }) else {
                 return log("S1 capture \(label) window \(window.windowID): not in SCShareableContent (\(content.windows.count) windows)", nil)
             }
-            let filter = SCContentFilter(desktopIndependentWindow: scWindow)
-            let configuration = SCStreamConfiguration()
-            let scale = Double(filter.pointPixelScale)
-            configuration.width = max(1, Int(filter.contentRect.width * scale))
-            configuration.height = max(1, Int(filter.contentRect.height * scale))
-            configuration.showsCursor = false
-            let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+            let image = try await ItemCapturer.image(of: scWindow)
             try FileManager.default.createDirectory(at: captureFolder, withIntermediateDirectories: true)
             let stamp = Int(Date().timeIntervalSince1970)
             let file = captureFolder.appendingPathComponent("\(stamp)-\(window.windowID)-\(label).png")
