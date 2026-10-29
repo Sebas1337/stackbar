@@ -15,7 +15,7 @@ Status: planning. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Releases
 
-Downloads are on [GitHub Releases](https://github.com/Sebas1337/stacker/releases); changes are in
+Downloads are on [GitHub Releases](https://github.com/Sebas1337/stackbar/releases); changes are in
 [CHANGELOG.md](CHANGELOG.md). Release process: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## License
