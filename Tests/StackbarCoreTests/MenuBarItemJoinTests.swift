@@ -67,9 +67,9 @@ struct MenuBarItemJoinTests {
             windows: [window],
             axItems: [
                 SnapshotSamples.axItem(pid: 680, bundleID: "com.apple.controlcenter", frame: window.frame),
-                SnapshotSamples.axItem(pid: 9, bundleID: "com.example.caffeine", frame: Rect(x: 1090, y: 4.5, width: 32, height: 24)),
+                SnapshotSamples.axItem(pid: 9, bundleID: "com.example.thirdparty", frame: Rect(x: 1090, y: 4.5, width: 32, height: 24)),
             ]
         )
-        #expect(joined[0].bundleID == "com.example.caffeine")
+        #expect(joined[0].bundleID == "com.example.thirdparty")
     }
 }
