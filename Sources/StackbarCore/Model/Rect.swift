@@ -22,10 +22,9 @@ public struct Rect: Codable, Sendable, Equatable, Hashable {
     public var midX: Double { x + width / 2 }
     public var midY: Double { y + height / 2 }
 
-    /// True when every edge is within `tolerance` points of `other`'s.
-    public func isClose(to other: Rect, tolerance: Double) -> Bool {
-        abs(minX - other.minX) <= tolerance && abs(minY - other.minY) <= tolerance
-            && abs(maxX - other.maxX) <= tolerance && abs(maxY - other.maxY) <= tolerance
+    /// True when the point lies inside (edges included).
+    public func contains(x px: Double, y py: Double) -> Bool {
+        px >= minX && px <= maxX && py >= minY && py <= maxY
     }
 
     public func intersects(_ other: Rect) -> Bool {
