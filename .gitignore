@@ -1,0 +1,26 @@
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved.bak
+
+# App bundling output
+build/
+dist/
+*.app
+*.dmg
+*.zip
+
+# Xcode (if ever opened)
+xcuserdata/
+*.xcuserstate
+DerivedData/
+
+# Claude Code (local, per-user)
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# Secrets
+.env
+.env.*

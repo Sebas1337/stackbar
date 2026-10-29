@@ -1,0 +1,57 @@
+name: Release
+
+# Pushing a tag vX.Y.Z (matching the VERSION file) builds Stackbar.app on macOS and
+# publishes a GitHub Release with the CHANGELOG section as notes. See docs/RELEASING.md.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # build number = commit count
+
+      - name: Check tag matches VERSION
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          file="$(tr -d '[:space:]' < VERSION)"
+          if [ "$tag" != "$file" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION ($file)"
+            exit 1
+          fi
+          echo "VERSION=$tag" >> "$GITHUB_ENV"
+
+      - name: Release notes
+        run: scripts/changelog-notes.sh "$VERSION" > "$RUNNER_TEMP/notes.md"
+
+      - name: Test
+        run: swift test
+
+      - name: Build Stackbar.app
+        run: make app
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          ditto -c -k --keepParent build/Stackbar.app "dist/Stackbar-$VERSION.zip"
+          shasum -a 256 "dist/Stackbar-$VERSION.zip" > "dist/Stackbar-$VERSION.zip.sha256"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=()
+          [[ "$VERSION" == *-* ]] && prerelease=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "Stackbar $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --verify-tag "${prerelease[@]}"

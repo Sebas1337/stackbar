@@ -1,0 +1,29 @@
+{
+  "name": "Stackbar",
+  "build": { "dockerfile": "Dockerfile" },
+  "remoteUser": "dev",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
+  "mounts": [
+    // Persist Claude Code login/config across rebuilds (isolated from your host ~/.claude)
+    "source=stackbar-claude-config,target=/home/dev/.claude,type=volume",
+    "source=stackbar-shell-history,target=/commandhistory,type=volume",
+    // Linux build artifacts live in a volume so they never clash with the macOS .build on the host
+    "source=stackbar-build-linux,target=/workspace/.build,type=volume"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/dev/.claude"
+  },
+  "postCreateCommand": "sudo chown -R dev:dev /workspace/.build /commandhistory /home/dev/.claude",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "swiftlang.swift-vscode"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}
