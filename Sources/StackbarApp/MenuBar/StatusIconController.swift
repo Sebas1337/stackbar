@@ -5,6 +5,8 @@ import StackbarCore
 /// on, a left click opens the dropdown panel and this menu moves to a right click.
 @MainActor
 final class StatusIconController {
+    static let autosaveName = "StackbarIcon"
+
     private let statusItem: NSStatusItem
 
     /// The icon's window in the window list, for diagnostics.
@@ -14,7 +16,7 @@ final class StatusIconController {
 
     init(buildInfo: BuildInfo) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.autosaveName = "StackbarIcon"
+        statusItem.autosaveName = Self.autosaveName
         if let button = statusItem.button {
             if let image = NSImage(systemSymbolName: "rectangle.stack", accessibilityDescription: "Stackbar") {
                 image.isTemplate = true

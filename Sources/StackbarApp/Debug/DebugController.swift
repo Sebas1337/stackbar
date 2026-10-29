@@ -37,7 +37,7 @@ final class DebugController {
             self.divider = nil
             SpikeLog.shared.add("Divider removed")
         } else {
-            divider = DividerController()
+            divider = DividerController(iconAutosaveName: StatusIconController.autosaveName)
             SpikeLog.shared.add("Divider shown, window \(divider?.windowID.map(String.init) ?? "?")")
         }
     }
