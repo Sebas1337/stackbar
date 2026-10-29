@@ -25,6 +25,8 @@ public struct ClickForwarding {
         public var outcome: Outcome
         public var windowID: UInt32
         public var press: PressResult?
+        /// The revealed item had no AX element, so the one from the panel's (collapsed) read was used.
+        public var usedPanelAX = false
         /// A synthesized click was used (AXPress unsupported).
         public var clicked = false
         /// The windows that opened: the item's menu or popover.
@@ -34,7 +36,7 @@ public struct ClickForwarding {
 
         public var description: String {
             "Click forwarding window \(windowID): \(outcome.rawValue), press \(press.map { "\($0)" } ?? "–"), "
-                + "clicked=\(clicked), opened \(opened.map(String.init)), recaptured=\(recaptured), collapsed=\(isCollapsed)"
+                + "clicked=\(clicked), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), recaptured=\(recaptured), collapsed=\(isCollapsed)"
         }
     }
 
@@ -80,9 +82,16 @@ public struct ClickForwarding {
         ) != nil else { return finish(.revealTimedOut) }
 
         // Read again: the AX frames of revealed items are only current now.
-        guard let target = driver.layout()?.items.first(where: { $0.window.windowID == id }),
-              let pid = target.ax?.pid
-        else { return finish(.itemNotFound) }
+        // A clipped item's AX frame may not match its window once it is back (seen for Bluetooth
+        // in the m3 dump): then press it by the AX element the panel knew (pid, index, identifier).
+        guard var target = driver.layout()?.items.first(where: { $0.window.windowID == id }) else {
+            return finish(.itemNotFound)
+        }
+        if target.ax == nil, let ax = item.ax {
+            target.ax = ax
+            report.usedPanelAX = true
+        }
+        guard let pid = target.ax?.pid else { return finish(.itemNotFound) }
 
         let before = driver.visibleWindows()
         let press = presser.press(target)

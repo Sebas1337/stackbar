@@ -30,8 +30,9 @@ final class ItemPresser: ItemPressing {
 
     /// The item's element in the app's extras menu bar, read again: its `index`th child when that
     /// still has the item's frame, otherwise the child with that frame (the app's items changed
-    /// since the layout was read). Same short messaging timeout as `AXMenuBarReader`: an app busy
-    /// opening its menu answers AXPress late (S2: -25204).
+    /// since the layout was read), otherwise the child with the same AX identifier (the frame is
+    /// from a collapsed read, see `ClickForwarding`). Same short messaging timeout as
+    /// `AXMenuBarReader`: an app busy opening its menu answers AXPress late (S2: -25204).
     private static func element(for ax: AXItemInfo) -> AXUIElement? {
         let app = AXUIElementCreateApplication(ax.pid)
         AXUIElementSetMessagingTimeout(app, AXMenuBarReader.messagingTimeout)
@@ -42,7 +43,10 @@ final class ItemPresser: ItemPressing {
         if children.indices.contains(ax.index), AXMenuBarReader.frame(of: children[ax.index]) == ax.frame {
             return children[ax.index]
         }
-        guard let frame = ax.frame else { return nil }
-        return children.first { AXMenuBarReader.frame(of: $0) == frame }
+        if let frame = ax.frame, let match = children.first(where: { AXMenuBarReader.frame(of: $0) == frame }) {
+            return match
+        }
+        guard let identifier = ax.identifier else { return nil }
+        return children.first { AXMenuBarReader.text($0, kAXIdentifierAttribute) == identifier }
     }
 }

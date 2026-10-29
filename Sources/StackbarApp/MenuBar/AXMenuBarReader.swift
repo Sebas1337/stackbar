@@ -52,7 +52,7 @@ enum AXMenuBarReader {
         return value as? T
     }
 
-    private static func text(_ element: AXUIElement, _ name: String) -> RedactedText? {
+    static func text(_ element: AXUIElement, _ name: String) -> RedactedText? {
         guard let string: String = attribute(element, name), !string.isEmpty else { return nil }
         return .plain(string)
     }

@@ -4,7 +4,7 @@ macOS menu bar manager: one Stackbar icon in the menu bar opens a dropdown panel
 status icons the user chose to hide. This solves cluttered menu bars and icons lost behind the
 notch. Full plan, decisions, terminology and milestones: @docs/PLAN.md
 
-Status (2026-10-29): M2 done (v0.3.0). Next milestone: **M3** (dropdown panel).
+Status (2026-10-29): M3 done (v0.4.0). Next milestone: **M4** (arrangement & persistence).
 
 ## Environment: read this first
 

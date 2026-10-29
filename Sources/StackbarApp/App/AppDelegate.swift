@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dropdown = DropdownController(menuBar: menuBar)
         let debug = DebugController(buildInfo: buildInfo, menuBar: menuBar)
         menuBar.icon.onClick = { [weak dropdown] in dropdown?.toggle() }
+        menuBar.icon.onMenu = { [weak dropdown] in dropdown?.close() }
         menuBar.icon.installCollapseItem(isCollapsed: { [weak menuBar] in menuBar?.isCollapsed ?? false }) { [weak dropdown] in
             dropdown?.toggleCollapsed()
         }

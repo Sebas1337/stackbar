@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **M2 done (v0.3.0, 2026-10-29). Next: M3 (dropdown panel).**
+Status: **M3 done (v0.4.0, 2026-10-29). Next: M4 (arrangement & persistence).**
 
 ## Goal
 
@@ -222,6 +222,13 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
 - Done when: clicking an icon in the panel opens that app's menu at its item's position, the
   menu bar collapses again after the menu closes, and images reflect the current state per the
   chosen policy.
+- **Result (2026-10-29)**: done. Verified on the host (fixture `m3-mbp16-macos26-panel.json`):
+  14 dropdown items, 9 captured per refresh, the 5 behind the notch not capturable (app icon);
+  refreshes within 10 s reuse the images. Click forwarding opened the menu or popover of every
+  item tried (Apple, Control Center and third-party, AXPress `success` or -25204) at its place in
+  the bar and collapsed after it closed; items behind the notch open near the notch. Bluetooth
+  (behind the notch) got `itemNotFound` (no AX match after reveal); fixed with the panel's AX
+  element as fallback. `DropdownGrid` + `PanelPlacement` reproduce the real panel frame.
 
 **M4 — Arrangement & persistence (v0.5.0)**
 - Settings window: two lists (Bar / Dropdown), drag to assign; immovable items shown greyed out
@@ -269,9 +276,11 @@ Spike questions. Each answer is written into this plan (Decisions / How it works
   the active display (S6).
 - **Clipped dropdown items**: on a full notched bar the leftmost dropdown items stay behind the
   notch even while expanded (5 of 11 in the m2 fixtures). They can't be captured, and their menus
-  open wherever macOS puts them for an item it doesn't show (checked in M3). Making them visible
-  means moving them for a moment (⌘-drag right of the divider and back), which builds on M4's
-  moves.
+  open wherever macOS puts them for an item it doesn't show. Checked in M3: AXPress works on them
+  and their menus open near the notch (Weather's popover at x = 741 on the notched display). Once
+  revealed, Bluetooth's AX element didn't match its window; click forwarding then presses the
+  element the panel knew (matched by AX identifier). Making them visible means moving them for a
+  moment (⌘-drag right of the divider and back), which builds on M4's moves.
 - **Click forwarding UX**: menus must open in a sensible position, not off-screen; hence
   reveal first (S2 confirmed: collapsed, menus open off-screen or clamped to the corner).
 - **Toolchain drift**: container Swift 6.2 vs host Command Line Tools 26 vs CI Xcode 26.x. Pinned to

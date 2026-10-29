@@ -12,6 +12,8 @@ final class StatusIconController: NSObject {
     private var isCollapsed: () -> Bool = { false }
 
     var onClick: (() -> Void)?
+    /// Runs before the menu opens (closes the dropdown panel).
+    var onMenu: (() -> Void)?
 
     private var knownWindowID: UInt32?
 
@@ -87,6 +89,7 @@ final class StatusIconController: NSObject {
 
     /// A status item with a `menu` opens it on every click, so attach it only for this one.
     private func showMenu() {
+        onMenu?()
         collapseItem?.title = isCollapsed() ? "Show All Items" : "Collapse Menu Bar"
         statusItem.menu = menu
         statusItem.button?.performClick(nil)

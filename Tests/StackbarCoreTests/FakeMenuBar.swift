@@ -7,7 +7,7 @@ import Testing
 @MainActor
 final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     let collapsedSnapshot: DiagnosticsSnapshot
-    let expandedSnapshot: DiagnosticsSnapshot
+    var expandedSnapshot: DiagnosticsSnapshot
 
     var isCollapsed: Bool
     var refusesCollapse = false
@@ -17,6 +17,7 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
 
     var pressResult = PressResult.success
     var pressed: [UInt32] = []
+    var pressedAX: [AXItemInfo?] = []
     var clicked: [Rect] = []
     /// Opened by a press or click: visible for this many `visibleWindows` reads.
     var menu: WindowInfo?
@@ -72,6 +73,7 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
 
     func press(_ item: MenuBarItem) -> PressResult {
         pressed.append(item.window.windowID)
+        pressedAX.append(item.ax)
         if pressResult != .actionUnsupported { openMenu() }
         return pressResult
     }

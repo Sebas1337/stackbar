@@ -89,6 +89,22 @@ struct ClickForwardingTests {
         #expect(bar.captured.isEmpty)
     }
 
+    /// m3 dump: Bluetooth, behind the notch, had no AX match once revealed. It is pressed with the
+    /// AX element the panel knew.
+    @Test func revealedItemWithoutAXUsesThePanelsElement() async throws {
+        let (bar, forwarding, item) = try Self.setUp(Self.bluetooth)
+        bar.expandedSnapshot.axItems.removeAll { $0.identifier == .plain("com.apple.menuextra.bluetooth") }
+        bar.isCollapsed = false
+        #expect(bar.layout()?.items.first { $0.window.windowID == Self.bluetooth }?.ax == nil)
+        bar.isCollapsed = true
+
+        let report = await forwarding.run(item)
+        #expect(report.outcome == .closed)
+        #expect(report.usedPanelAX)
+        #expect(bar.pressed == [Self.bluetooth])
+        #expect(bar.pressedAX == [item.ax])
+    }
+
     @Test func expandedStaysExpanded() async throws {
         let (bar, _, item) = try Self.setUp()
         bar.isCollapsed = false
