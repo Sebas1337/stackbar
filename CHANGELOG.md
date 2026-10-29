@@ -6,6 +6,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-29
+
 ### Added
 - The divider (a slanted line left of the Stackbar icon) is always there. Click the icon to
   collapse: everything left of the divider moves out of view; click again to bring it back.
