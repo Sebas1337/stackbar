@@ -6,7 +6,8 @@
 - **Source of truth: the `VERSION` file.** `scripts/build-app.sh` writes it into `Info.plist`
   as `CFBundleShortVersionString`; `CFBundleVersion` (build number) is
   `git rev-list --count HEAD`, so it always increases.
-- Pre-1.0, one minor version per milestone: M0 → `0.1.0`, M1 → `0.2.0`, … M5 → `1.0.0`.
+- Pre-1.0, one minor version per milestone: M0 → `0.1.0`, M1 → `0.2.0`, M2 → `0.3.0`, M3 → `0.4.0`,
+  M3b → `0.5.0`, M4 → `0.6.0`, M5 → `1.0.0`.
   Fixes in between bump the patch version.
 - Pre-releases use a suffix (`0.3.0-beta.1`) and are marked as pre-release on GitHub.
 - `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Every PR
