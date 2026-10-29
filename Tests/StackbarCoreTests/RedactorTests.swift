@@ -66,6 +66,15 @@ struct RedactorTests {
         #expect(redacted.axItems[1].title == .plain("Stackbar"))
     }
 
+    @Test func hashesTitlesOfOtherAppleWindows() {
+        var safari = SnapshotSamples.statusWindow(4, x: 0, title: "My bank – Login")
+        safari.layer = 101
+        safari.ownerBundleID = "com.apple.Safari"
+        let redacted = redactor.redact(SnapshotSamples.snapshot(windows: [safari]))
+        #expect(redacted.windows[0].title?.plainText == nil)
+        #expect(redacted.windows[0].ownerBundleID == "com.apple.Safari")
+    }
+
     @Test func redactsIdentitiesInNotes() {
         var snapshot = SnapshotSamples.snapshot(
             axItems: [SnapshotSamples.axItem(pid: 9, bundleID: "com.example.vpn", frame: nil)]

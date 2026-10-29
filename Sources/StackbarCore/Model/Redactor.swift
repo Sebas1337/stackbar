@@ -74,9 +74,9 @@ public struct Redactor: Sendable {
         }
         result.windows = snapshot.windows.map { window in
             var window = window
-            let titleOwner = window.layer == WindowInfo.statusWindowLayer
-                ? statusItemApps[window.windowID]
-                : window.ownerBundleID
+            // Other windows (menus, popovers, Safari or Finder panels) can carry page or document
+            // names even when Apple owns them: always hash their titles.
+            let titleOwner = window.layer == WindowInfo.statusWindowLayer ? statusItemApps[window.windowID] : nil
             window.title = redact(window.title, bundleID: titleOwner)
             window.ownerName = redactIdentity(window.ownerName, bundleID: window.ownerBundleID)
             window.ownerBundleID = redactIdentity(window.ownerBundleID, bundleID: window.ownerBundleID)
