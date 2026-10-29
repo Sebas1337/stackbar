@@ -20,6 +20,12 @@ final class ItemsWindowController {
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: ItemsView(model: model))
         window.center()
+        // Each refresh scans every app through AX: only while the window is open.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: window, queue: .main
+        ) { [model] _ in
+            MainActor.assumeIsolated { model.stopAutoRefresh() }
+        }
     }
 
     func show() {
@@ -74,6 +80,11 @@ final class ItemsModel {
         }
     }
 
+    func stopAutoRefresh() {
+        timer?.invalidate()
+        timer = nil
+    }
+
     func refresh() {
         permissions = PermissionState.current
         let windows = WindowListReader.windows()
@@ -123,14 +134,15 @@ final class ItemsModel {
     func capture(collapsed: Bool) {
         guard let row = selectedRow else { return }
         let debug = debug
+        let wasCollapsed = isCollapsed
         run {
-            if collapsed {
+            if collapsed && !wasCollapsed {
                 debug.setCollapsed(true)
                 try? await Task.sleep(for: .milliseconds(700))
             }
             let window = WindowListReader.windows().first { $0.windowID == row.window.windowID } ?? row.window
             let result = await SpikeActions.capture(window: window, label: collapsed ? "collapsed" : "current")
-            if collapsed { debug.setCollapsed(false) }
+            if collapsed && !wasCollapsed { debug.setCollapsed(false) }
             if let file = result.file { NSWorkspace.shared.open(file) }
             return result.message
         }

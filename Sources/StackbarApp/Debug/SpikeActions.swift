@@ -64,10 +64,10 @@ enum SpikeActions {
         try? await Task.sleep(for: .seconds(1))
         let appeared = WindowListReader.windows(minimumLayer: 0).filter { !before.contains($0.windowID) && $0.isOnScreen }
         let summary = appeared.map {
-            "#\($0.windowID) layer \($0.layer) owner \($0.ownerBundleID ?? $0.ownerName ?? "?") at x=\(Int($0.frame.x)),y=\(Int($0.frame.y)) \(Int($0.frame.width))x\(Int($0.frame.height))"
+            "#\($0.windowID) layer \($0.layer) owner \(SpikeLog.identity(bundleID: $0.ownerBundleID, fallback: $0.ownerName ?? "?")) at x=\(Int($0.frame.x)),y=\(Int($0.frame.y)) \(Int($0.frame.width))x\(Int($0.frame.height))"
         }
         return log(
-            "S2 AXPress \(item.info.bundleID ?? "pid \(item.info.pid)")[\(item.info.index)] frame \(item.info.frame.map(describe) ?? "nil"): result \(error.rawValue), new windows: \(summary.isEmpty ? "none" : summary.joined(separator: "; "))",
+            "S2 AXPress \(SpikeLog.identity(bundleID: item.info.bundleID, fallback: "pid \(item.info.pid)"))[\(item.info.index)] frame \(item.info.frame.map(describe) ?? "nil"): result \(error.rawValue), new windows: \(summary.isEmpty ? "none" : summary.joined(separator: "; "))",
             nil
         ).message
     }

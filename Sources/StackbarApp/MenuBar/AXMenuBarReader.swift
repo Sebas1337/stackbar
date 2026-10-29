@@ -23,10 +23,12 @@ enum AXMenuBarReader {
             let pid = app.processIdentifier
             let appElement = AXUIElementCreateApplication(pid)
             AXUIElementSetMessagingTimeout(appElement, messagingTimeout)
-            guard let extras: AXUIElement = attribute(appElement, kAXExtrasMenuBarAttribute),
-                  let children: [AXUIElement] = attribute(extras, kAXChildrenAttribute)
-            else { continue }
+            guard let extras: AXUIElement = attribute(appElement, kAXExtrasMenuBarAttribute) else { continue }
+            // The timeout applies per element, so set it on every element we query.
+            AXUIElementSetMessagingTimeout(extras, messagingTimeout)
+            guard let children: [AXUIElement] = attribute(extras, kAXChildrenAttribute) else { continue }
             for (index, child) in children.enumerated() {
+                AXUIElementSetMessagingTimeout(child, messagingTimeout)
                 let info = AXItemInfo(
                     pid: pid,
                     bundleID: app.bundleIdentifier,
