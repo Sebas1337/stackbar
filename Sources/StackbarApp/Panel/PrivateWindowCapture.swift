@@ -37,10 +37,10 @@ enum PrivateWindowCapture {
     static var isAvailable: Bool { symbols != nil }
 
     /// `kCGSCaptureIgnoreGlobalClipShape` (the parts outside any display) | best resolution.
-    private static let options: UInt32 = (1 << 11) | (1 << 8)
+    static let defaultOptions: UInt32 = (1 << 11) | (1 << 8)
 
     /// The window's image at backing resolution, or nil when the API is missing or refuses.
-    static func image(of windowID: UInt32) -> CGImage? {
+    static func image(of windowID: UInt32, options: UInt32 = defaultOptions) -> CGImage? {
         guard let symbols else { return nil }
         var id = windowID
         guard let array = symbols.capture(symbols.connection(), &id, 1, options)?.takeRetainedValue(),

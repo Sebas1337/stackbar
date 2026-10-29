@@ -5,15 +5,35 @@ import StackbarCore
 
 private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category: "capture")
 
-/// Captures item images with ScreenCaptureKit by window id. Only on-screen windows can be
-/// captured (S1); `DropdownRefresh` and `ClickForwarding` call it while the items are revealed.
-/// Keeps the latest image per window for the dropdown panel.
+/// Captures item images by window id and keeps the latest per window for the dropdown panel.
+/// First with the private capture (`PrivateWindowCapture`), which also takes items behind the
+/// notch (S10); ScreenCaptureKit for the rest, which only takes on-screen windows (S1). Neither
+/// takes items the collapsed divider pushed off the display, so `DropdownRefresh` and
+/// `ClickForwarding` call this while the items are revealed.
 @MainActor
 final class ItemCapturer: ItemCapturing {
     private(set) var images: [UInt32: CGImage] = [:]
 
+    var capturesClippedItems: Bool { PrivateWindowCapture.isAvailable }
+
     func capture(_ items: [MenuBarItem]) async -> Set<UInt32> {
         guard !items.isEmpty, CGPreflightScreenCaptureAccess() else { return [] }
+        var captured = Set<UInt32>()
+        var remaining: [MenuBarItem] = []
+        for item in items {
+            let id = item.window.windowID
+            if let image = PrivateWindowCapture.image(of: id) {
+                images[id] = image
+                captured.insert(id)
+            } else if item.window.isOnScreen {
+                remaining.append(item)
+            }
+        }
+        guard !remaining.isEmpty else { return captured }
+        return captured.union(await captureWithScreenCaptureKit(remaining))
+    }
+
+    private func captureWithScreenCaptureKit(_ items: [MenuBarItem]) async -> Set<UInt32> {
         let content: SCShareableContent
         do {
             content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
@@ -43,7 +63,7 @@ final class ItemCapturer: ItemCapturing {
         images = images.filter { windowIDs.contains($0.key) }
     }
 
-    /// One window at its full pixel resolution.
+    /// One window at its full pixel resolution, with ScreenCaptureKit.
     static func image(of window: SCWindow) async throws -> CGImage {
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let configuration = SCStreamConfiguration()

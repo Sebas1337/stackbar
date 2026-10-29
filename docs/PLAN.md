@@ -94,7 +94,11 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    that return `kAXErrorActionUnsupported`) → stay expanded until the item's menu or popover closes →
    collapse (`ClickForwarding`). "Closed" means the windows the app opened have left the window
    list or gone off-screen, with a 60 s timeout as backstop. Menus therefore open at the item's real
-   position in the bar.
+   position in the bar. M3b shows the item alone: right after expanding it is ⌘-dragged just
+   right of the divider and the bar collapses again, so only that item is in view while its menu
+   is open; afterwards a window-targeted ⌘-drag puts it back left of the collapsed divider (S9;
+   retry once, else expand and drag it back). Items behind the notch can't be dragged and keep
+   the plain sequence. The item comes back next to the divider, not at its old spot.
 5. **Arrange**: moving an item between bar and dropdown is a synthesized ⌘-drag of the real
    item across the divider. Moves run only while expanded, because a ⌘-drag can't reach an
    off-screen item: expand → for each move: ⌘-drag, re-enumerate, verify, retry once →

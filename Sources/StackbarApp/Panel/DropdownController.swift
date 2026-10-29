@@ -14,6 +14,7 @@ final class DropdownController {
     private let menuBar: MenuBarController
     private let capturer = ItemCapturer()
     private let presser = ItemPresser()
+    private let mover = ItemMover()
     private let refresh: DropdownRefresh
     private let model = DropdownModel()
     private let hostingView: NSHostingView<DropdownView>
@@ -89,7 +90,7 @@ final class DropdownController {
         close()
         enqueue { [weak self] in
             guard let self else { return }
-            let report = await ClickForwarding(driver: menuBar, presser: presser, capturer: capturer).run(item)
+            let report = await ClickForwarding(driver: menuBar, presser: presser, capturer: capturer, mover: mover).run(item)
             if report.recaptured { show(model.items.map(\.menuBarItem)) }
             log(report.description)
         }

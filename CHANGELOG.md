@@ -6,6 +6,12 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The dropdown panel is a list: each item's image with its name next to it.
+- Clicking an item in the panel shows only that item in the menu bar while its menu is open,
+  instead of every item left of the divider. It goes back afterwards.
+- Items behind the notch now have a real image in the panel too.
+
 ## [0.4.0] - 2026-10-29
 
 ### Added
