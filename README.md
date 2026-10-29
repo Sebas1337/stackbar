@@ -4,7 +4,7 @@ Declutter your Mac's menu bar. Stackbar adds a single icon that opens a dropdown
 status icons you don't want in the bar, including the ones that would otherwise be lost behind
 the notch.
 
-Status: early development (M0, foundation). Requires macOS 26. See [docs/PLAN.md](docs/PLAN.md).
+Status: early development (0.1.0: menu bar icon only). Requires macOS 26. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Development
 
