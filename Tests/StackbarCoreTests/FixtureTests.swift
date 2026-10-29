@@ -58,11 +58,66 @@ struct NotchFixtureTests {
     }
 
     /// On macOS 26 Control Center hosts every status item window with a real frame. An app may
-    /// also own a 0 × 0 stand-in at status level (WeatherMenu here), which isn't the item.
+    /// also own a status-level window of its own (WeatherMenu's panel, 0 × 0 while closed).
     @Test func everyRealStatusWindowIsOwnedByControlCenter() {
         let real = snapshot.statusWindows.filter { $0.frame.width > 0 }
         #expect(real.allSatisfy { $0.ownerBundleID == "com.apple.controlcenter" })
         let standIns = snapshot.statusWindows.filter { $0.frame.width == 0 }
         #expect(standIns.map(\.ownerBundleID) == ["com.apple.weather.menu"])
+    }
+}
+
+/// Built-in display plus an external display, extended (spike S6), pinned to the fixture.
+struct ExtendedFixtureTests {
+    let snapshot: DiagnosticsSnapshot
+    let active: ScreenInfo
+    let other: ScreenInfo
+
+    init() throws {
+        snapshot = try FixtureTests.load("m1-mbp16-macos26-extended.json")
+        active = try #require(snapshot.screens.first { $0.isMain })
+        other = try #require(snapshot.screens.first { !$0.isMain })
+    }
+
+    func items(on screen: ScreenInfo) -> [WindowInfo] {
+        snapshot.statusWindows.filter {
+            $0.ownerBundleID == "com.apple.controlcenter" && $0.frame.midX >= screen.frame.minX && $0.frame.midX < screen.frame.maxX
+        }
+    }
+
+    @Test func externalDisplayHasNoNotch() {
+        #expect(NotchGeometry.notch(of: active) == nil)
+        #expect(NotchGeometry.notch(of: other) != nil)
+    }
+
+    /// Every display's menu bar has its own window per status item.
+    @Test func oneWindowPerItemPerDisplay() {
+        #expect(items(on: active).count == 22)
+        #expect(items(on: other).count == 22)
+    }
+
+    /// AX frames only describe the items on the active display (the one with the key window).
+    @Test func axMatchesOnlyTheActiveDisplay() {
+        let joined = MenuBarItemJoin.join(snapshot)
+        let activeIDs = Set(items(on: active).map(\.windowID))
+        let matched = joined.filter { $0.axItem != nil }.map(\.window.windowID)
+        #expect(Set(matched) == activeIDs)
+    }
+
+    /// On the active display a window's title is the item's autosave name.
+    @Test func activeDisplayTitlesAreAutosaveNames() {
+        let titles = Set(items(on: active).compactMap { $0.title?.plainText })
+        #expect(titles.isSuperset(of: ["Clock", "WiFi", "StackbarIcon", "StackbarDivider"]))
+    }
+
+    /// On the other display, a third-party item's window is titled with the owner's bundle id:
+    /// its title hash equals the hashed bundle id of the matching item on the active display.
+    @Test func otherDisplayTitlesAreBundleIDs() {
+        let hashedOwners = Set(MenuBarItemJoin.join(snapshot).compactMap(\.bundleID).filter { $0.hasPrefix("hash:") })
+        let titleHashes = items(on: other).compactMap { window -> String? in
+            if case .hashed(let hash, let length)? = window.title, length > 0 { return "hash:" + hash }
+            return nil
+        }
+        #expect(hashedOwners.isSubset(of: Set(titleHashes)))
     }
 }
