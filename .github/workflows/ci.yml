@@ -39,5 +39,5 @@ jobs:
       - name: Check bundle
         run: |
           plutil -lint build/Stackbar.app/Contents/Info.plist
-          lipo -verify_arch arm64 x86_64 build/Stackbar.app/Contents/MacOS/Stackbar
+          lipo build/Stackbar.app/Contents/MacOS/Stackbar -verify_arch arm64 x86_64
           codesign -dv build/Stackbar.app
