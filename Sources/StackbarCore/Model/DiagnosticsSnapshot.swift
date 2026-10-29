@@ -223,6 +223,10 @@ public struct StackbarItemsInfo: Codable, Sendable, Equatable {
 
     /// True while the divider pushes the dropdown items off-screen.
     public var isCollapsed: Bool {
-        (dividerLength ?? 0) >= Self.collapsedDividerLength
+        Self.isCollapsed(dividerLength: dividerLength)
+    }
+
+    public static func isCollapsed(dividerLength: Double?) -> Bool {
+        (dividerLength ?? 0) >= collapsedDividerLength
     }
 }

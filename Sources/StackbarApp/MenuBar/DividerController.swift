@@ -35,12 +35,16 @@ final class DividerController {
         }
     }
 
-    var isCollapsed: Bool { statusItem.length >= StackbarItemsInfo.collapsedDividerLength }
+    var isCollapsed: Bool { StackbarItemsInfo.isCollapsed(dividerLength: statusItem.length) }
 
     var length: Double { statusItem.length }
 
-    var windowID: UInt32? {
-        StatusItemWindow.windowID(of: statusItem)
+    private var knownWindowID: UInt32?
+
+    /// The divider's window in `windows` (one window-list read per action).
+    func windowID(in windows: [WindowInfo]) -> UInt32? {
+        knownWindowID = StatusItemWindow.cached(knownWindowID, in: windows, of: statusItem)
+        return knownWindowID
     }
 
     func setCollapsed(_ collapsed: Bool) {

@@ -29,6 +29,12 @@ public struct ItemIdentity: Codable, Sendable, Hashable {
 
     public var isImmovable: Bool { Self.immovable.contains(self) }
 
+    /// The same items by AX identifier, which needs no Screen Recording (window titles do).
+    public static let immovableAXIdentifiers: Set<String> = [
+        "com.apple.menuextra.clock",
+        "com.apple.menuextra.controlcenter",
+    ]
+
     /// Identities for one app's items, given left to right. A title is used when it is
     /// non-empty and unique among the app's items; otherwise the ordinal.
     static func assign(bundleID: String, titles: [RedactedText?]) -> [ItemIdentity] {

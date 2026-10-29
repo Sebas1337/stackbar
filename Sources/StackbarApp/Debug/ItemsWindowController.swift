@@ -45,7 +45,7 @@ struct ItemRow: Identifiable {
     /// aren't items of the active display (copies on other displays, panels).
     var section: String
 
-    var app: String { ax?.info.bundleID ?? "?" }
+    var app: String { ax?.info.bundleID ?? (section == "icon" || section == "divider" ? "Stackbar" : "?") }
     var name: String {
         [ax?.info.title?.plainText, ax?.info.axDescription?.plainText, window.title?.plainText]
             .compactMap { $0 }.first ?? ""
@@ -93,23 +93,30 @@ final class ItemsModel {
             screens: ScreenReader.screens(),
             windows: windows,
             axItems: axItems.map(\.info),
-            stackbarItems: debug.menuBar.stackbarItems
+            stackbarItems: debug.menuBar.stackbarItems(in: windows)
         )
+        let sections = layout.map(Self.sections(in:)) ?? [:]
+        // All status windows, not only the layout's items: copies on other displays stay visible.
         let joined = MenuBarItemJoin.join(windows: windows, axItems: axItems.map(\.info))
         rows = joined.map { item in
             ItemRow(
                 window: item.window,
                 ax: item.axItem.flatMap { info in axItems.first { $0.info == info } },
-                section: layout.map { Self.section(of: item.window.windowID, in: $0) } ?? ""
+                section: sections[item.window.windowID] ?? ""
             )
         }
     }
 
-    private static func section(of windowID: UInt32, in layout: MenuBarLayout) -> String {
-        if windowID == layout.icon?.windowID { return "icon" }
-        if windowID == layout.divider?.windowID { return "divider" }
-        guard let item = layout.items.first(where: { $0.window.windowID == windowID }) else { return "" }
-        return item.section.rawValue + (item.isClipped ? ", clipped" : "") + (item.isImmovable ? ", immovable" : "")
+    /// Section column text per window id.
+    private static func sections(in layout: MenuBarLayout) -> [UInt32: String] {
+        var sections: [UInt32: String] = [:]
+        for item in layout.items {
+            sections[item.window.windowID] = item.section.rawValue
+                + (item.isClipped ? ", clipped" : "") + (item.isImmovable ? ", immovable" : "")
+        }
+        if let icon = layout.icon { sections[icon.windowID] = "icon" }
+        if let divider = layout.divider { sections[divider.windowID] = "divider" }
+        return sections
     }
 
     private var selectedRow: ItemRow? { rows.first { $0.id == selection } }
@@ -142,7 +149,7 @@ final class ItemsModel {
         let wasCollapsed = isCollapsed
         run {
             if collapsed && !wasCollapsed {
-                menuBar.setCollapsed(true)
+                guard menuBar.setCollapsed(true) else { return "Collapse refused; nothing captured." }
                 try? await Task.sleep(for: .milliseconds(700))
             }
             let window = WindowListReader.windows().first { $0.windowID == row.window.windowID } ?? row.window
@@ -163,7 +170,7 @@ final class ItemsModel {
         let menuBar = debug.menuBar
         run {
             if collapsed {
-                menuBar.setCollapsed(true)
+                guard menuBar.setCollapsed(true) else { return "Collapse refused; nothing pressed." }
                 try? await Task.sleep(for: .milliseconds(700))
             }
             let message = await SpikeActions.press(ax)
@@ -177,8 +184,9 @@ final class ItemsModel {
     /// ⌘-drags the selected item to the other side of the divider.
     func dragAcrossDivider() {
         guard let row = selectedRow else { return }
-        guard let dividerID = debug.menuBar.divider.windowID,
-              let divider = WindowListReader.windows().first(where: { $0.windowID == dividerID })
+        let windows = WindowListReader.windows()
+        guard let dividerID = debug.menuBar.divider.windowID(in: windows),
+              let divider = windows.first(where: { $0.windowID == dividerID })
         else {
             status = "Divider not found in the window list."
             return

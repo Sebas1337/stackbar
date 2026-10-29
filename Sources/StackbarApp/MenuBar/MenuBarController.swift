@@ -21,8 +21,13 @@ final class MenuBarController {
 
     var isCollapsed: Bool { divider.isCollapsed }
 
-    var stackbarItems: StackbarItemsInfo {
-        StackbarItemsInfo(iconWindowID: icon.windowID, dividerWindowID: divider.windowID, dividerLength: divider.length)
+    /// Icon and divider as found in `windows`, for diagnostics and classification.
+    func stackbarItems(in windows: [WindowInfo]) -> StackbarItemsInfo {
+        StackbarItemsInfo(
+            iconWindowID: icon.windowID(in: windows),
+            dividerWindowID: divider.windowID(in: windows),
+            dividerLength: divider.length
+        )
     }
 
     func toggleCollapsed() {
@@ -36,15 +41,17 @@ final class MenuBarController {
     func setCollapsed(_ collapsed: Bool) -> Bool {
         guard collapsed != isCollapsed else { return true }
         if collapsed {
+            let windows = WindowListReader.windows()
             let layout = MenuBarLayout.classify(
                 screens: ScreenReader.screens(),
-                windows: WindowListReader.windows(),
+                windows: windows,
                 axItems: [],
-                stackbarItems: stackbarItems
+                stackbarItems: stackbarItems(in: windows)
             )
-            guard layout?.canCollapse == true else {
-                log("Collapse refused: divider \(layout?.divider == nil ? "not found" : "not left of the icon")")
-                showDividerAlert()
+            guard let layout, layout.canCollapse else {
+                let found = layout?.icon != nil && layout?.divider != nil
+                log("Collapse refused: \(found ? "divider not left of the icon" : "icon or divider not found in the window list")")
+                showRefusal(dividerMisplaced: found)
                 return false
             }
         }
@@ -59,13 +66,18 @@ final class MenuBarController {
         SpikeLog.shared.add(message)
     }
 
-    private func showDividerAlert() {
+    private func showRefusal(dividerMisplaced: Bool) {
         let alert = NSAlert()
         alert.messageText = "Can't collapse the menu bar"
-        alert.informativeText = """
-            Stackbar's divider (the slanted line) must be left of the Stackbar icon. Hold ⌘ and \
-            drag the divider to the left of the icon, then click the icon again.
-            """
+        alert.informativeText = dividerMisplaced
+            ? """
+                Stackbar's divider (the slanted line) must be left of the Stackbar icon. Hold ⌘ and \
+                drag the divider to the left of the icon, then click the icon again.
+                """
+            : """
+                Stackbar couldn't find its icon or divider in the menu bar. Try again in a moment; \
+                if it keeps failing, use Debug → Copy Diagnostics and report it.
+                """
         NSApp.activate()
         alert.runModal()
     }

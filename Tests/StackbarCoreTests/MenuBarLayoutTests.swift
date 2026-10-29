@@ -82,6 +82,19 @@ struct MenuBarLayoutFixtureTests {
         #expect(immovable.map(\.window.windowID) == [20, 17])
         #expect(immovable.allSatisfy { $0.section == .bar })
     }
+
+    /// Without Screen Recording there are no titles: the AX identifier still marks them.
+    @Test func immovableWithoutWindowTitles() throws {
+        var snapshot = try FixtureTests.load("m1-mbp16-macos26-spike.json")
+        snapshot.windows = snapshot.windows.map { window in
+            var window = window
+            window.title = nil
+            return window
+        }
+        let layout = try #require(MenuBarLayout.classify(snapshot))
+        #expect(layout.items.filter(\.isImmovable).map(\.window.windowID) == [20, 17])
+        #expect(layout.items.allSatisfy { if case .ordinal? = $0.identity?.key { true } else { false } })
+    }
 }
 
 /// Classification of hand-built layouts the fixtures don't cover yet.

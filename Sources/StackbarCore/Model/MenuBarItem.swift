@@ -12,14 +12,22 @@ public struct MenuBarItem: Sendable, Equatable {
     /// macOS hides it behind the notch because it doesn't fit. Independent of `section`: a
     /// dropdown item can be clipped while expanded.
     public var isClipped: Bool
+    /// Refuses ⌘-drag (S4); Stackbar never moves it. Known by identity or by AX identifier.
+    public var isImmovable: Bool
 
-    public init(window: WindowInfo, bundleID: String?, identity: ItemIdentity?, section: Section, isClipped: Bool) {
+    public init(
+        window: WindowInfo,
+        bundleID: String?,
+        identity: ItemIdentity?,
+        section: Section,
+        isClipped: Bool,
+        isImmovable: Bool
+    ) {
         self.window = window
         self.bundleID = bundleID
         self.identity = identity
         self.section = section
         self.isClipped = isClipped
+        self.isImmovable = isImmovable
     }
-
-    public var isImmovable: Bool { identity?.isImmovable ?? false }
 }

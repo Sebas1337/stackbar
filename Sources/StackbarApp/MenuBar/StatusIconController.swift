@@ -11,9 +11,12 @@ final class StatusIconController: NSObject {
 
     var onClick: (() -> Void)?
 
-    /// The icon's window in the window list, for diagnostics.
-    var windowID: UInt32? {
-        StatusItemWindow.windowID(of: statusItem)
+    private var knownWindowID: UInt32?
+
+    /// The icon's window in `windows` (one window-list read per action).
+    func windowID(in windows: [WindowInfo]) -> UInt32? {
+        knownWindowID = StatusItemWindow.cached(knownWindowID, in: windows, of: statusItem)
+        return knownWindowID
     }
 
     init(buildInfo: BuildInfo) {

@@ -14,7 +14,7 @@ final class DebugController {
     }
 
     var collector: DiagnosticsCollector {
-        DiagnosticsCollector(buildInfo: buildInfo) { [menuBar] in menuBar.stackbarItems }
+        DiagnosticsCollector(buildInfo: buildInfo) { [menuBar] in menuBar.stackbarItems(in: WindowListReader.windows()) }
     }
 
     // MARK: Menu actions
