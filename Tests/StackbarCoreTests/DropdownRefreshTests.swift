@@ -113,24 +113,6 @@ struct RevealCheckTests {
         #expect(wide.minX >= expanded.screen.frame.minX)
     }
 
-    @Test func gridWrapsAtTheMaximumWidth() {
-        let one = DropdownGrid.layout(sizes: [(38, 33), (45, 33)])
-        #expect(one.frames == [Rect(x: 6, y: 6, width: 38, height: 33), Rect(x: 46, y: 6, width: 45, height: 33)])
-        #expect(one.width == 97)
-        #expect(one.height == 45)
-
-        let wrapped = DropdownGrid.layout(sizes: Array(repeating: (40, 33), count: 5), maximumWidth: 140)
-        // 6 + 40 + 2 + 40 + 2 + 40 + 6 = 136 fits; a fourth item wraps.
-        #expect(wrapped.frames.map(\.y) == [6, 6, 6, 41, 41])
-        #expect(wrapped.frames[3].x == 6)
-        #expect(wrapped.width == 136)
-        #expect(wrapped.height == 80)
-
-        #expect(DropdownGrid.layout(sizes: []).frames.isEmpty)
-        // An item wider than the maximum still gets its own row.
-        #expect(DropdownGrid.layout(sizes: [(500, 33)], maximumWidth: 140).width == 512)
-    }
-
     @Test func menuWindowsOpenAndClose() {
         let item = SnapshotSamples.statusWindow(1, x: 1000)
         let menu = FakeMenuBar.menuWindow(pid: 42)

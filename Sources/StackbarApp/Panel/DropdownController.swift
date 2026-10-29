@@ -106,21 +106,17 @@ final class DropdownController {
     // MARK: Showing items
 
     private func show(_ items: [MenuBarItem]) {
-        let grid = DropdownGrid.layout(sizes: items.map { ($0.window.frame.width, $0.window.frame.height) })
-        model.items = zip(items, grid.frames).map { item, frame in
+        model.items = items.map { item in
             let app = item.ax.flatMap { NSRunningApplication(processIdentifier: $0.pid) }
+            let size = CGSize(width: item.window.frame.width, height: item.window.frame.height)
             return DropdownModel.Item(
                 menuBarItem: item,
-                frame: frame,
-                image: capturer.images[item.window.windowID].map {
-                    NSImage(cgImage: $0, size: NSSize(width: frame.width, height: frame.height))
-                },
+                size: size,
+                image: capturer.images[item.window.windowID].map { NSImage(cgImage: $0, size: size) },
                 appIcon: app?.icon,
                 name: Self.name(of: item, appName: app?.localizedName)
             )
         }
-        model.gridWidth = grid.width
-        model.gridHeight = grid.height
         if isOpen { place() }
     }
 
