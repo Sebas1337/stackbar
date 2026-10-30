@@ -182,6 +182,8 @@ struct ArrangementTests {
         #expect(bar.collapseCalls.isEmpty)
         let divider = try #require(bar.layout()?.divider)
         #expect(bar.roomDrops == [divider.windowID])
+        #expect(report.steps.count == 1)
+        #expect(report.steps.first?.hasPrefix("drag 4777 x=") == true)
         #expect(bar.moves.first?.1 == .init(x: divider.frame.minX - 4, y: divider.frame.midY))
         #expect(try #require(bar.layout()).items.first { $0.window.windowID == Self.battery }?.section == .dropdown)
         #expect(report.isCollapsed)

@@ -55,6 +55,7 @@ final class ArrangementController {
             lastReport = report
             pending -= 1
             logger.notice("\(report.description, privacy: .public)")
+            for step in report.steps { SpikeLog.shared.add("  \(step)") }
             SpikeLog.shared.add(report.description)
             onChange?()
         }

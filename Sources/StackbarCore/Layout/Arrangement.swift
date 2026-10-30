@@ -34,6 +34,8 @@ public final class Arrangement {
         public var misplacedAfterReveal: [UInt32]?
         /// Moved, but on the wrong side again once collapsed, after the last pass.
         public var reverted: [UInt32] = []
+        /// One line per drag: where the item was and went (diagnostics, M4).
+        public var steps: [String] = []
         /// Stopped early by `cancel()` (the user pressed Esc).
         public var cancelled = false
         public var isCollapsed: Bool
@@ -194,6 +196,15 @@ public final class Arrangement {
     /// clipped item shifted right with the dropped one still in its section. A move that doesn't
     /// show is tried once more, then given up (`failed`).
     private func perform(_ move: ArrangementPlan.Move, dividerID: UInt32, state: inout RunState, report: inout Report) async {
+        let windows = driver.windows(minimumLayer: WindowInfo.statusWindowLayer)
+        var step = "drag \(Self.describe(move.item.window.windowID, in: windows)) to x=\(Int(move.point.x))"
+            + (move.dropWindowID.map { " aimed at \($0)" } ?? "") + ", divider \(Self.describe(dividerID, in: windows))"
+        if let clipped = move.makesRoomFor { step += " (room for \(Self.describe(clipped.window.windowID, in: windows)))" }
+        defer {
+            let after = driver.windows(minimumLayer: WindowInfo.statusWindowLayer)
+            let watched = move.makesRoomFor?.window.windowID ?? move.item.window.windowID
+            report.steps.append(step + " -> \(Self.describe(watched, in: after))")
+        }
         await mover.move(move)
         if let clipped = move.makesRoomFor {
             let id = clipped.window.windowID
@@ -230,6 +241,12 @@ public final class Arrangement {
             report.failed.append(id)
             state.done.insert(id)
         }
+    }
+
+    /// "29 x=1003 on" for the step log: where a window is, and whether it is shown.
+    static func describe(_ id: UInt32, in windows: [WindowInfo]) -> String {
+        guard let window = windows.first(where: { $0.windowID == id }) else { return "\(id) gone" }
+        return "\(id) x=\(Int(window.frame.x)) \(window.isOnScreen ? "on" : "off")"
     }
 
     /// Misplaced items `layout` shows out of reach, for the report and for automatic re-applies.
