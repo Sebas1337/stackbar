@@ -15,7 +15,9 @@ import StackbarCore
 ///   into view, else as C), then put the parked items back (collapsed S9 drag).
 ///
 /// Every step writes the items next to the notch into `SpikeLog`. Afterwards `AppDelegate` runs a
-/// forced arrangement, which moves whatever ended on the wrong side back per the user's choices.
+/// forced arrangement, which moves whatever ended on the wrong side back per the user's choices
+/// (not when the divider itself moved). A Debug experiment: unlike `Arrangement`, it doesn't hold
+/// back the user's input, so hands off while it runs.
 @MainActor
 final class DeadZoneSpike {
     private let menuBar: MenuBarController
@@ -26,17 +28,40 @@ final class DeadZoneSpike {
         self.config = config
     }
 
-    func run() async {
-        log("S12 start: collapsed=\(menuBar.isCollapsed), slow moves=\(ItemMover.usesSlowPace)")
+    /// Runs the attempts and restores the collapsed state. False when the divider ended up somewhere
+    /// else: a forced arrangement would then reshuffle the bar around it, so the user puts it back.
+    func run() async -> Bool {
+        let wasCollapsed = menuBar.isCollapsed
+        log("S12 start: collapsed=\(wasCollapsed), slow moves=\(ItemMover.usesSlowPace)")
+        let safe = await attempts()
+        if wasCollapsed, !menuBar.isCollapsed { menuBar.setCollapsed(true) }
+        return safe
+    }
+
+    private func attempts() async -> Bool {
         guard AXIsProcessTrusted() else {
             log("S12: no Accessibility permission, events would be dropped")
-            return
+            return true
         }
-        guard let target = await deadZoneItem() else { return }
-        if await dividerJump(onto: target) { return log("S12 result: A (divider jump) works") }
-        if await blindDrag(target, label: "C") { return log("S12 result: C (blind drag) works") }
-        if await park(for: target) { return log("S12 result: B (parking) works") }
-        log("S12 result: nothing worked")
+        guard let target = await deadZoneItem() else { return true }
+        switch await dividerJump(onto: target) {
+        case .works:
+            log("S12 result: A (divider jump) works")
+            return true
+        case .dividerMoved:
+            log("S12 result: A moved the divider without the target crossing it; stopped. ⌘-drag the divider back left of the Stackbar icon")
+            return false
+        case .failed:
+            break
+        }
+        if await blindDrag(target, label: "C") {
+            log("S12 result: C (blind drag) works")
+        } else if await park(for: target) {
+            log("S12 result: B (parking) works")
+        } else {
+            log("S12 result: nothing worked")
+        }
+        return true
     }
 
     // MARK: Finding the item
@@ -62,19 +87,22 @@ final class DeadZoneSpike {
 
     // MARK: A divider jump
 
-    private func dividerJump(onto id: UInt32) async -> Bool {
+    private enum JumpResult { case works, failed, dividerMoved }
+
+    private func dividerJump(onto id: UInt32) async -> JumpResult {
         for route in [ItemMover.windowTargeted, ItemMover.visible] {
-            guard let layout = menuBar.layout(), let divider = layout.divider, let item = find(id, in: layout) else { return false }
+            guard let layout = menuBar.layout(), let divider = layout.divider, let item = find(id, in: layout) else { return .failed }
             let drop = CGPoint(x: item.window.frame.minX + 2, y: item.window.frame.midY)
             await ItemMover.drag(divider, to: drop, targetWindowID: id, route: route)
             await settle()
-            guard let after = menuBar.layout() else { return false }
+            guard let after = menuBar.layout() else { return .failed }
             let section = find(id, in: after)?.section
             log("S12 A (\(route.name)) divider \(divider.windowID) x=\(Int(divider.frame.x)) on=\(divider.isOnScreen) dropped at x=\(Int(drop.x)): target now \(section.map { "\($0)" } ?? "gone"). \(describe(after))")
-            if section == .bar { return await collapsedShows(id, label: "A") }
-            if after.divider?.frame.x != divider.frame.x { return false } // the divider moved elsewhere: don't drag it again
+            if section == .bar { return await collapsedShows(id, label: "A") ? .works : .failed }
+            // The divider moved elsewhere: don't drag it again.
+            if after.divider?.frame.x != divider.frame.x { return .dividerMoved }
         }
-        return false
+        return .failed
     }
 
     // MARK: C blind drag
