@@ -9,6 +9,8 @@ final class DebugController {
     private var itemsWindow: ItemsWindowController?
     /// Debug → Reset Onboarding (set by `AppDelegate`).
     var resetOnboarding: (() -> Void)?
+    /// Debug → S12 Dead Zone (set by `AppDelegate`: queued, then a forced arrangement).
+    var runDeadZoneSpike: (() -> Void)?
 
     init(buildInfo: BuildInfo, menuBar: MenuBarController) {
         self.buildInfo = buildInfo

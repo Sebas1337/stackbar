@@ -72,6 +72,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menuBar?.isSetUp = false
             onboarding?.show(opensAtLogin: LoginItem.isEnabled || LoginItem.needsApproval)
         }
+        debug.runDeadZoneSpike = { [weak menuBar, weak store, weak queue, weak arranger] in
+            guard let menuBar, let store else { return }
+            let spike = DeadZoneSpike(menuBar: menuBar) { [weak store] in store?.config ?? StackbarConfig() }
+            queue?.enqueue {
+                if await spike.run() { arranger?.apply(force: true) }
+            }
+        }
 
         if menuBar.isSetUp {
             // Restore the collapsed state of the last quit, then put items back where the user wants
