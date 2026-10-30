@@ -20,6 +20,11 @@ All notable changes to Stackbar are documented here. The format follows
 - With a full menu bar, moving items to the dropdown no longer spends seconds on drags that can't
   land.
 
+## [1.0.0-beta.1] - 2026-10-30
+
+Pre-release of 1.0.0 with everything under Unreleased, to test the signed DMG and the updater
+(docs/RELEASING.md → Testing an update). Pre-releases are only offered to pre-releases.
+
 ## [0.6.1] - 2026-10-30
 
 ### Fixed
