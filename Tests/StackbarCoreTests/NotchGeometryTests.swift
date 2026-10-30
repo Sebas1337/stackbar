@@ -35,3 +35,22 @@ struct ClippedTests {
         #expect(layout.panelItems.map(\.window.windowID) == layout.dropdown.map(\.window.windowID) + [5148])
     }
 }
+
+/// Expanded with a full bar (m4 expanded-full dump): VPN sits right of the notch (x = 967, the
+/// notch ends at 956) and is still hidden; the room move picks the visible item between it and
+/// the divider, which on the Mac only swapped neighbours (m4 noroom dump).
+struct DeadZoneTests {
+    @Test func itemRightOfTheNotchCanStillBeHidden() throws {
+        let layout = try #require(MenuBarLayout.classify(try FixtureTests.load("m4-mbp16-macos26-expanded-full.json")))
+        #expect(!layout.isCollapsed)
+        let vpn = try #require(layout.items.first { $0.window.windowID == 29 })
+        #expect(vpn.section == .dropdown)
+        #expect(vpn.isClipped)
+        #expect(vpn.window.frame.minX > 956)
+        var config = StackbarConfig()
+        config.assign(try #require(vpn.identity), to: .bar, name: "VPN")
+        let move = try #require(ArrangementPlan.nextMove(in: layout, config: config))
+        #expect(move.makesRoomFor?.window.windowID == 29)
+        #expect(move.item.window.windowID == 6650)
+    }
+}

@@ -88,6 +88,8 @@ final class SettingsWindowController {
                 caption = blocker == .clipped
                     ? "Behind the notch, with no visible item beside it to make room with"
                     : "Not moved (\(blocker.rawValue))"
+            } else if report?.outOfRoom.contains(id) == true {
+                caption = "No room: with this full a menu bar, macOS hides it next to the notch where Stackbar can't reach it"
             } else if report?.reverted.contains(id) == true {
                 caption = "macOS put it back when the menu bar collapsed; drag it again to retry"
             } else if report?.failed.contains(id) == true {

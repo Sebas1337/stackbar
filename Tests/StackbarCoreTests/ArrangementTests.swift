@@ -254,6 +254,7 @@ struct ArrangementTests {
         let report = await Arrangement(driver: bar, mover: bar).run(config: config)
         #expect(report.failed == [Self.bluetooth])
         #expect(report.roomMoves == 0)
+        #expect(report.outOfRoom == [Self.bluetooth])
         #expect(bar.moves.count == 2)
     }
 

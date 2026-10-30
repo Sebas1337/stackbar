@@ -26,6 +26,8 @@ public final class Arrangement {
         public var moved: [UInt32] = []
         /// Moved twice without arriving on the other side.
         public var failed: [UInt32] = []
+        /// Of `failed`: behind the notch, and dropping other items onto it didn't bring it into view.
+        public var outOfRoom: [UInt32] = []
         /// Still misplaced and impossible to move.
         public var blocked: [UInt32: ArrangementPlan.Blocker] = [:]
         /// Drops onto items behind the notch that shifted them towards view.
@@ -213,7 +215,9 @@ public final class Arrangement {
             let shifted = await driver.waitUntilSettled(
                 [id, helper], polls: timing.movePolls, intervalMilliseconds: timing.pollIntervalMilliseconds
             ) { windows in
-                (windows.first { $0.windowID == id }?.frame.minX ?? 0) > clipped.window.frame.minX + 1
+                // Half the dropped item's width at least: next to the notch the drop only swaps
+                // neighbours and the clipped item jitters by a few points (m4-mbp16-macos26-noroom.json).
+                (windows.first { $0.windowID == id }?.frame.minX ?? 0) > clipped.window.frame.minX + max(1, move.item.window.frame.width / 2)
                     && Self.isInSection(move.section, helper, dividerID: dividerID, in: windows)
             }
             if shifted != nil {
@@ -223,6 +227,7 @@ public final class Arrangement {
             }
             if state.attempts[id, default: 0] >= timing.attemptsPerItem || state.roomMoves[id, default: 0] >= timing.roomMovesPerItem {
                 report.failed.append(id)
+                report.outOfRoom.append(id)
                 state.done.insert(id)
             }
             return
