@@ -39,6 +39,9 @@ public enum ArrangementPlan {
         case clipped
         /// Off the display (collapsed): expand first.
         case offScreen
+        /// Into the dropdown while expanded with the divider hidden next to the notch (a full bar):
+        /// the drop would miss (`canDropIntoDropdown`). Collapsed, the S9 drag does it.
+        case dividerHidden
     }
 
     /// Dropped this far outside the divider: the targets that worked in S3.
@@ -65,9 +68,13 @@ public enum ArrangementPlan {
         return layout.items.filter { $0.identity?.bundleID == identity.bundleID }.count < 2
     }
 
-    /// Why `item` can't be moved in `layout`, nil when it can (possibly after making room).
+    /// Why misplaced `item` can't be moved in `layout` (a bar item goes into the dropdown, a
+    /// dropdown item into the bar), nil when it can (possibly after making room).
     public static func blocker(of item: MenuBarItem, in layout: MenuBarLayout) -> Blocker? {
         if item.isImmovable { return .immovable }
+        if item.section == .bar, let divider = layout.divider, !canDropIntoDropdown(in: layout, divider: divider) {
+            return .dividerHidden
+        }
         if item.isClipped { return roomMaker(for: item, in: layout) == nil ? .clipped : nil }
         if !item.window.isOnScreen { return .offScreen }
         return nil
@@ -97,7 +104,9 @@ public enum ArrangementPlan {
             again.contains($0.window.windowID) && !skipping.contains($0.window.windowID) && $0.window.isOnScreen && !$0.isImmovable
         }
         for item in repeated {
-            guard let section = item.identity.flatMap(config.section(for:)) else { continue }
+            guard let section = item.identity.flatMap(config.section(for:)),
+                  section == .bar || canDropIntoDropdown(in: layout, divider: divider)
+            else { continue }
             return Move(item: item, section: section, point: dropPoint(into: section, for: item, in: layout, divider: divider))
         }
         let candidates = misplaced(in: layout, config: config)
@@ -114,6 +123,15 @@ public enum ArrangementPlan {
         }
         let section: Section = item.section == .bar ? .dropdown : .bar
         return Move(item: item, section: section, point: dropPoint(into: section, for: item, in: layout, divider: divider))
+    }
+
+    /// Expanded with the divider itself hidden next to the notch (a full bar), a drop into the
+    /// dropdown lands behind the notch and misses: m5-mbp16-macos26-fast.json, windows 92 and 4777
+    /// (Battery) dragged to x = 942 and x = 951 twice per run, 2.1 s each, nothing moved. Those
+    /// moves are left to the collapsed path (S9), which works with a full bar (`Blocker.dividerHidden`);
+    /// 92 was even on its side there already, misplaced only in the expanded read.
+    static func canDropIntoDropdown(in layout: MenuBarLayout, divider: WindowInfo) -> Bool {
+        layout.isCollapsed || divider.isOnScreen
     }
 
     /// The next move while collapsed, without expanding: a bar item assigned to the dropdown goes

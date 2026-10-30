@@ -98,9 +98,14 @@ final class SettingsWindowController {
             if arranger.isRunning {
                 caption = "Moving…"
             } else if let blocker = report?.blocked[id] {
-                caption = blocker == .clipped
-                    ? "Behind the notch, with no visible item beside it to make room with"
-                    : "Not moved (\(blocker.rawValue))"
+                switch blocker {
+                case .clipped:
+                    caption = "Behind the notch, with no visible item beside it to make room with"
+                case .dividerHidden:
+                    caption = "The menu bar is full: collapse it (click the Stackbar icon) and Stackbar moves it"
+                default:
+                    caption = "Not moved (\(blocker.rawValue))"
+                }
             } else if report?.outOfRoom.contains(id) == true {
                 caption = "No room: with this full a menu bar, it sits next to the notch where Stackbar can't reach it"
             } else if report?.reverted.contains(id) == true {
