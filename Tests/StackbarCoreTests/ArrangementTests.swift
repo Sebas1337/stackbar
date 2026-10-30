@@ -35,7 +35,7 @@ struct ArrangementTests {
         #expect(ArrangementPlan.misplaced(in: layout, config: config).map(\.window.windowID) == [Self.battery])
     }
 
-    @Test func nextMoveDropsNextToTheDivider() throws {
+    @Test func nextMoveDropsOnTheNeighbourAcrossTheDivider() throws {
         let bar = try FakeMenuBar(collapsed: false)
         let layout = try #require(bar.layout())
         let divider = try #require(layout.divider)
@@ -47,10 +47,15 @@ struct ArrangementTests {
         let toBar = try #require(ArrangementPlan.nextMove(in: layout, config: config, skipping: [Self.battery]))
         #expect(toBar.item.window.windowID == Self.sound)
         #expect(toBar.section == .bar)
-        #expect(toBar.point == .init(x: divider.frame.maxX + 4, y: divider.frame.midY))
+        // On the first bar item right of the divider (window 64), not just past the divider.
+        let firstBar = try #require(layout.items.first { $0.window.windowID == 64 })
+        #expect(firstBar.window.frame.minX == divider.frame.maxX)
+        #expect(toBar.point == .init(x: firstBar.window.frame.midX, y: divider.frame.midY))
         let toDropdown = try #require(ArrangementPlan.nextMove(in: layout, config: config, skipping: [Self.sound]))
         #expect(toDropdown.item.window.windowID == Self.battery)
-        #expect(toDropdown.point == .init(x: divider.frame.minX - 4, y: divider.frame.midY))
+        // On the last dropdown item left of it (Sound).
+        let lastDropdown = try #require(layout.items.first { $0.window.windowID == Self.sound })
+        #expect(toDropdown.point == .init(x: lastDropdown.window.frame.midX, y: divider.frame.midY))
         #expect(ArrangementPlan.nextMove(in: layout, config: config, skipping: [Self.sound, Self.battery])?.item.window.windowID == Self.wifi)
     }
 
@@ -89,6 +94,34 @@ struct ArrangementTests {
         #expect(report.isCollapsed)
         #expect(Self.section(of: Self.sound, in: bar) == .bar)
         #expect(Self.section(of: Self.battery, in: bar) == .dropdown)
+    }
+
+    @Test func aMoveUndoneByCollapsingIsMadeAgain() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        bar.revertsOnCollapse = [Self.sound: 1]
+        let config = try Self.config(bar, [Self.sound: .bar])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.moved == [Self.sound])
+        #expect(report.reverted.isEmpty)
+        #expect(bar.moves.count == 2)
+        #expect(bar.collapseCalls == [false, true, false, true])
+        let collapsed = try #require(bar.layout())
+        #expect(collapsed.items.first { $0.window.windowID == Self.sound }?.section == .bar)
+    }
+
+    @Test func aMoveThatKeepsGoingBackIsReportedAndNotRetriedAutomatically() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        bar.revertsOnCollapse = [Self.sound: 5]
+        let config = try Self.config(bar, [Self.sound: .bar])
+        let arrangement = Arrangement(driver: bar, mover: bar)
+        let report = await arrangement.run(config: config)
+        #expect(report.reverted == [Self.sound])
+        #expect(report.isCollapsed)
+        #expect(bar.moves.count == 2)
+        let again = await arrangement.run(config: config)
+        #expect(again.outcome == .upToDate)
+        let forced = await arrangement.run(config: config, force: true)
+        #expect(forced.outcome == .arranged)
     }
 
     @Test func expandedStaysExpanded() async throws {

@@ -19,6 +19,8 @@ All notable changes to Stackbar are documented here. The format follows
 - Items hidden left of the notch (under the app menus) now count as behind the notch.
 - Items behind the notch can be moved too: Stackbar first drops visible items onto them until
   they come into view.
+- Moves are checked once the menu bar has collapsed again, and redone once when macOS put an
+  item back.
 
 ## [0.5.0] - 2026-10-29
 

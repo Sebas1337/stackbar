@@ -87,14 +87,35 @@ public enum ArrangementPlan {
                 makesRoomFor: item
             )
         }
-        let toDropdown = item.section == .bar
-        return Move(
-            item: item,
-            section: toDropdown ? .dropdown : .bar,
-            point: Point(
-                x: toDropdown ? divider.frame.minX - dropOffset : divider.frame.maxX + dropOffset,
-                y: divider.frame.midY
-            )
+        let section: Section = item.section == .bar ? .dropdown : .bar
+        return Move(item: item, section: section, point: dropPoint(into: section, for: item, in: layout, divider: divider))
+    }
+
+    /// Where a dragged item lands well inside `section`: on the center of its neighbour across the
+    /// divider (the nearest visible item of that section, left of Stackbar's icon), not just past
+    /// the divider's edge. Drops 4 pt past the edge looked right while expanded but sat on the
+    /// other side again once collapsed (m4-mbp16-macos26-revert.json). Without such a neighbour:
+    /// just past the divider (S3).
+    static func dropPoint(into section: Section, for item: MenuBarItem, in layout: MenuBarLayout, divider: WindowInfo) -> Point {
+        let visible = layout.items.filter {
+            $0.window.isOnScreen && $0.window.windowID != item.window.windowID && $0.section == section
+        }
+        let neighbour: MenuBarItem?
+        switch section {
+        case .bar:
+            let iconMinX = layout.icon?.frame.minX ?? .infinity
+            neighbour = visible.first {
+                $0.window.frame.minX >= divider.frame.maxX - 1 && $0.window.frame.maxX <= iconMinX + 1
+            }
+        case .dropdown:
+            neighbour = visible.last { $0.window.frame.maxX <= divider.frame.minX + 1 }
+        }
+        if let neighbour {
+            return Point(x: neighbour.window.frame.midX, y: divider.frame.midY)
+        }
+        return Point(
+            x: section == .dropdown ? divider.frame.minX - dropOffset : divider.frame.maxX + dropOffset,
+            y: divider.frame.midY
         )
     }
 

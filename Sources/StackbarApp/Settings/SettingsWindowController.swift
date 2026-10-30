@@ -88,6 +88,8 @@ final class SettingsWindowController {
                 caption = blocker == .clipped
                     ? "Behind the notch, with no visible item beside it to make room with"
                     : "Not moved (\(blocker.rawValue))"
+            } else if report?.reverted.contains(id) == true {
+                caption = "macOS put it back when the menu bar collapsed; drag it again to retry"
             } else if report?.failed.contains(id) == true {
                 caption = "Couldn't move it; ⌘-drag it across the divider yourself"
             } else {

@@ -27,6 +27,8 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     var moves: [(UInt32, ArrangementPlan.Point)] = []
     /// Window ids that don't move when dragged.
     var failingMoves: Set<UInt32> = []
+    /// Window ids that go back left of the divider when collapsing, how many times.
+    var revertsOnCollapse: [UInt32: Int] = [:]
     /// The window each move's drop was aimed at (nil: a plain drag).
     var roomDrops: [UInt32?] = []
 
@@ -66,6 +68,7 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     func setCollapsed(_ collapsed: Bool) -> Bool {
         collapseCalls.append(collapsed)
         if collapsed && refusesCollapse { return false }
+        if collapsed && !isCollapsed && !moves.isEmpty { syncCollapsed() }
         isCollapsed = collapsed
         return true
     }
@@ -133,15 +136,44 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     /// Moves windows by their offsets, with the AX frames joined to them (content-frame center
     /// inside the window), so the next `layout()` joins them the same way.
     private func shift(_ shifts: [(index: Int, dx: Double)]) {
-        let old = shifts.map { expandedSnapshot.windows[$0.index].frame }
+        Self.shift(&expandedSnapshot, shifts)
+    }
+
+    private static func shift(_ snapshot: inout DiagnosticsSnapshot, _ shifts: [(index: Int, dx: Double)]) {
+        let old = shifts.map { snapshot.windows[$0.index].frame }
         let axMoves = zip(shifts, old).flatMap { shift, frame in
-            expandedSnapshot.axItems.indices.filter { i in
-                guard let ax = expandedSnapshot.axItems[i].frame else { return false }
+            snapshot.axItems.indices.filter { i in
+                guard let ax = snapshot.axItems[i].frame else { return false }
                 return frame.contains(x: ax.midX, y: ax.midY)
             }.map { ($0, shift.dx) }
         }
-        for shift in shifts { expandedSnapshot.windows[shift.index].frame.x += shift.dx }
-        for (i, dx) in axMoves { expandedSnapshot.axItems[i].frame?.x += dx }
+        for shift in shifts { snapshot.windows[shift.index].frame.x += shift.dx }
+        for (i, dx) in axMoves { snapshot.axItems[i].frame?.x += dx }
+    }
+
+    /// After moves, collapsing derives the collapsed bar from the expanded one: dropdown items go
+    /// off the display, the divider gets its collapsed frame, everything else stays. Items in
+    /// `revertsOnCollapse` first go back left of the divider, like Keyboard Brightness in the
+    /// m4 revert dump (each count is one revert).
+    private func syncCollapsed() {
+        guard let before = MenuBarLayout.classify(expandedSnapshot), let divider = before.divider else { return }
+        for item in before.bar where revertsOnCollapse[item.window.windowID, default: 0] > 0 {
+            revertsOnCollapse[item.window.windowID]! -= 1
+            guard let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == item.window.windowID }) else { continue }
+            shift([(index, divider.frame.minX - 1 - item.window.frame.maxX)])
+        }
+        guard let layout = MenuBarLayout.classify(expandedSnapshot) else { return }
+        var collapsed = expandedSnapshot
+        collapsed.stackbarItems = collapsedSnapshot.stackbarItems
+        if let index = collapsed.windows.firstIndex(where: { $0.windowID == divider.windowID }),
+           let collapsedDivider = collapsedSnapshot.windows.first(where: { $0.windowID == divider.windowID }) {
+            collapsed.windows[index] = collapsedDivider
+        }
+        let dropdown = Set(layout.dropdown.map(\.window.windowID))
+        let shifts = collapsed.windows.indices.filter { dropdown.contains(collapsed.windows[$0].windowID) }.map { ($0, -5000.0) }
+        Self.shift(&collapsed, shifts)
+        for (index, _) in shifts { collapsed.windows[index].isOnScreen = false }
+        collapsedSnapshot = collapsed
     }
 
     private func openMenu() {
