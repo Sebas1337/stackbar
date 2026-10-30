@@ -31,8 +31,32 @@ struct StackbarConfigTests {
         config.assign(Self.untitled, to: .dropdown, name: "App")
         config.onboardingCompleted = true
         config.isCollapsed = true
+        config.hotKey = HotKey(keyCode: 1, modifiers: [.control, .option], key: "S")
+        config.autoCollapseSeconds = 30
+        config.checksForUpdates = false
+        config.lastUpdateCheck = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        config.skippedVersion = "1.0.1"
         try ConfigFile.save(config, to: url)
         #expect(ConfigFile.load(from: url) == .loaded(config))
+    }
+
+    /// A 0.6 config has none of M5's General settings: it loads with their defaults.
+    @Test func olderFileGetsTheNewDefaults() throws {
+        let url = Self.temporaryURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var expected = StackbarConfig()
+        expected.assign(Self.sound, to: .dropdown, name: "Sound")
+        expected.isCollapsed = true
+        expected.onboardingCompleted = true
+        // The file as 0.6 wrote it: only the keys it knew.
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(expected)) as? [String: Any])
+        object = object.filter { ["version", "assignments", "onboardingCompleted", "isCollapsed"].contains($0.key) }
+        try JSONSerialization.data(withJSONObject: object).write(to: url)
+        let result = ConfigFile.load(from: url)
+        #expect(result == .loaded(expected))
+        #expect(result.config.checksForUpdates)
+        #expect(result.config.hotKey == nil && result.config.autoCollapseSeconds == nil)
     }
 
     @Test func missingFileGivesTheDefaults() {

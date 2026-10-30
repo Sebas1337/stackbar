@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settings: SettingsWindowController?
     private var onboarding: OnboardingWindowController?
     private var watcher: MenuBarWatcher?
+    private var hotKeys: HotKeyCenter?
+    private var general: GeneralSettingsController?
     private var debug: DebugController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -21,17 +23,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let capturer = ItemCapturer()
         let dropdown = DropdownController(menuBar: menuBar, queue: queue, capturer: capturer)
         let arranger = ArrangementController(menuBar: menuBar, queue: queue, store: store)
-        let settings = SettingsWindowController(menuBar: menuBar, arranger: arranger, capturer: capturer)
-        let onboarding = OnboardingWindowController { [weak settings] in settings?.show() }
         let watcher = MenuBarWatcher()
+        let hotKeys = HotKeyCenter()
+        let general = GeneralSettingsController(store: store, hotKeys: hotKeys, watcher: watcher)
+        let settings = SettingsWindowController(menuBar: menuBar, arranger: arranger, capturer: capturer, general: general)
+        let onboarding = OnboardingWindowController { [weak settings] in settings?.show() }
         let debug = DebugController(buildInfo: buildInfo, menuBar: menuBar)
 
         // Until onboarding has finished, the icon opens it instead of the panel and collapsing is
         // refused (docs/PLAN.md, Decisions → First run).
         menuBar.isSetUp = store.config.onboardingCompleted
-        menuBar.icon.onClick = { [weak menuBar, weak dropdown, weak onboarding] in
+        let openDropdown: () -> Void = { [weak menuBar, weak dropdown, weak onboarding] in
             if menuBar?.isSetUp == true { dropdown?.toggle() } else { onboarding?.show() }
         }
+        menuBar.icon.onClick = openDropdown
+        hotKeys.onPress = openDropdown
         menuBar.icon.onMenu = { [weak dropdown] in dropdown?.close() }
         menuBar.icon.installCollapseItem(isCollapsed: { [weak menuBar] in menuBar?.isCollapsed ?? false }) { [weak dropdown] in
             dropdown?.toggleCollapsed()
@@ -40,12 +46,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dropdown.onSettings = { [weak settings] in settings?.show() }
         menuBar.icon.installDebugMenu(debug)
 
-        watcher.isBusy = { [weak dropdown, weak arranger, weak settings] in
-            dropdown?.isOpen == true || arranger?.isRunning == true || settings?.isVisible == true
+        watcher.isBusy = { [weak dropdown, weak arranger, weak settings, weak queue] in
+            dropdown?.isOpen == true || arranger?.isRunning == true || settings?.isVisible == true || queue?.isRunning == true
         }
+        watcher.isCollapsed = { [weak menuBar] in menuBar?.isCollapsed ?? true }
         watcher.onDue = { [weak arranger] in arranger?.apply(force: false) }
-        onboarding.onFinish = { [weak menuBar, weak store, weak arranger, weak watcher] in
+        watcher.onAutoCollapse = { [weak queue, weak menuBar] in
+            queue?.enqueue {
+                guard let menuBar, !menuBar.isCollapsed else { return }
+                SpikeLog.shared.add("Auto-collapse")
+                menuBar.setCollapsed(true)
+            }
+        }
+        general.applyStored()
+        onboarding.onFinish = { [weak menuBar, weak store, weak arranger, weak watcher, weak general] opensAtLogin in
             store?.update { $0.onboardingCompleted = true }
+            general?.setOpensAtLogin(opensAtLogin)
             menuBar?.isSetUp = true
             arranger?.apply(force: false)
             watcher?.start()
@@ -54,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             store?.update { $0.onboardingCompleted = false }
             menuBar?.setCollapsed(false)
             menuBar?.isSetUp = false
-            onboarding?.show()
+            onboarding?.show(opensAtLogin: LoginItem.isEnabled || LoginItem.needsApproval)
         }
 
         if menuBar.isSetUp {
@@ -78,6 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.settings = settings
         self.onboarding = onboarding
         self.watcher = watcher
+        self.hotKeys = hotKeys
+        self.general = general
         self.debug = debug
         Logger(subsystem: "io.github.sebas1337.stackbar", category: "app")
             .notice("launched \(buildInfo.displayString, privacy: .public), AX trusted=\(AXIsProcessTrusted(), privacy: .public)")

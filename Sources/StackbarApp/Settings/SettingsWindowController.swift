@@ -12,11 +12,13 @@ final class SettingsWindowController {
     private let menuBar: MenuBarController
     private let arranger: ArrangementController
     private let capturer: ItemCapturer
+    private let general: GeneralSettingsController
 
-    init(menuBar: MenuBarController, arranger: ArrangementController, capturer: ItemCapturer) {
+    init(menuBar: MenuBarController, arranger: ArrangementController, capturer: ItemCapturer, general: GeneralSettingsController) {
         self.menuBar = menuBar
         self.arranger = arranger
         self.capturer = capturer
+        self.general = general
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
@@ -24,8 +26,9 @@ final class SettingsWindowController {
             defer: false
         )
         window.title = "Stackbar Settings"
+        window.identifier = GeneralSettingsModel.windowIdentifier
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: SettingsView(model: model))
+        window.contentViewController = NSHostingController(rootView: SettingsTabsView(items: model, general: general.model))
         window.center()
         model.onAssign = { [arranger] row, section in
             guard let item = row.item else { return }
@@ -36,12 +39,16 @@ final class SettingsWindowController {
             guard let self, window.isVisible else { return }
             reload()
         }
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [general] _ in
+            MainActor.assumeIsolated { general.close() }
+        }
     }
 
     var isVisible: Bool { window.isVisible }
 
     func show() {
         reload()
+        general.reload()
         captureMissingImages()
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)

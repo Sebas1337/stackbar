@@ -11,6 +11,8 @@ final class OnboardingModel {
 
     var step = Step.welcome
     var permissions = PermissionState.current
+    /// The last step's checkbox: register Stackbar as a login item when finishing.
+    var opensAtLogin = true
     @ObservationIgnored var onOpenSettings: () -> Void = {}
     @ObservationIgnored var onRelaunch: () -> Void = {}
     @ObservationIgnored var onFinish: () -> Void = {}
@@ -78,6 +80,7 @@ struct OnboardingView: View {
                     text: "Open Settings and drag the items you want out of sight into the Dropdown list. "
                         + "Click the Stackbar icon to open the dropdown; right-click it for Settings."
                 )
+                Toggle("Open Stackbar at login", isOn: $model.opensAtLogin)
                 footer {
                     Button("Open Settings") {
                         model.onFinish()
