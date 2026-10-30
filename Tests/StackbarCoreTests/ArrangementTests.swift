@@ -147,6 +147,30 @@ struct ArrangementTests {
         #expect(try #require(bar.layout()).items.first { $0.window.windowID == Self.sound }?.section == .bar)
     }
 
+    @Test func cancelStopsBeforeTheNextMoveAndCollapses() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.sound: .bar, Self.battery: .dropdown])
+        let arrangement = Arrangement(driver: bar, mover: bar)
+        var willMove = 0
+        arrangement.onWillMove = { willMove += 1 }
+        bar.onMove = { arrangement.cancel() }
+        let report = await arrangement.run(config: config)
+        #expect(willMove == 1)
+        #expect(report.cancelled)
+        #expect(bar.moves.count == 1)
+        #expect(bar.collapseCalls == [false, true])
+        #expect(report.isCollapsed)
+    }
+
+    @Test func upToDateDoesNotAnnounceMoves() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let arrangement = Arrangement(driver: bar, mover: bar)
+        var willMove = 0
+        arrangement.onWillMove = { willMove += 1 }
+        _ = await arrangement.run(config: StackbarConfig())
+        #expect(willMove == 0)
+    }
+
     @Test func expandedStaysExpanded() async throws {
         let bar = try FakeMenuBar(collapsed: false)
         let config = try Self.config(bar, [Self.battery: .dropdown])

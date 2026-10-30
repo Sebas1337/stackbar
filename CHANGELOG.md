@@ -21,6 +21,8 @@ All notable changes to Stackbar are documented here. The format follows
   they come into view.
 - Moves are checked once the menu bar has collapsed again, and redone once when macOS put an
   item back.
+- While Stackbar arranges the menu bar, your mouse and keyboard are paused and a small note under
+  the icon says so; Esc stops it.
 
 ## [0.5.0] - 2026-10-29
 

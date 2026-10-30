@@ -34,6 +34,8 @@ enum ItemMover {
         func send(_ type: CGEventType, _ point: CGPoint, _ windowID: UInt32) {
             guard let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: .left) else { return }
             event.flags = .maskCommand
+            // Passes `InputBlocker`, which holds back the user's own input meanwhile.
+            event.setIntegerValueField(.eventSourceUserData, value: InputBlocker.marker)
             if route.targetsWindows {
                 event.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(windowID))
                 event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(windowID))

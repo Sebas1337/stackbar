@@ -34,13 +34,15 @@ public final class Arrangement {
         public var misplacedAfterReveal: [UInt32]?
         /// Moved, but on the wrong side again once collapsed, after the last pass.
         public var reverted: [UInt32] = []
+        /// Stopped early by `cancel()` (the user pressed Esc).
+        public var cancelled = false
         public var isCollapsed: Bool
 
         public var description: String {
             let blocked = blocked.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value.rawValue)" }
             return "Arrangement: \(outcome.rawValue), moved \(moved.map(String.init)), failed \(failed.map(String.init)), "
                 + "blocked \(blocked), room moves \(roomMoves), reverted \(reverted.map(String.init)), "
-                + "misplaced after reveal \((misplacedAfterReveal ?? []).map(String.init)), collapsed=\(isCollapsed)"
+                + "misplaced after reveal \((misplacedAfterReveal ?? []).map(String.init)), cancelled=\(cancelled), collapsed=\(isCollapsed)"
         }
     }
 
@@ -65,6 +67,11 @@ public final class Arrangement {
     private let timing: Timing
     /// Identities found blocked by the last run.
     private var blocked: Set<ItemIdentity> = []
+    private var isCancelled = false
+
+    /// Runs once a run is about to change the menu bar (not for an up-to-date one): the app blocks
+    /// the user's input and shows that Stackbar is busy.
+    public var onWillMove: (() -> Void)?
 
     public init(driver: any MenuBarDriver, mover: any ItemMoving, timing: Timing = Timing()) {
         self.driver = driver
@@ -88,6 +95,8 @@ public final class Arrangement {
             report.outcome = .upToDate
             return report
         }
+        isCancelled = false
+        onWillMove?()
 
         var attempts: [UInt32: Int] = [:]
         var roomMoves: [UInt32: Int] = [:]
@@ -115,6 +124,10 @@ public final class Arrangement {
                 last = layout
                 if report.misplacedAfterReveal == nil {
                     report.misplacedAfterReveal = ArrangementPlan.misplaced(in: layout, config: config).map(\.window.windowID)
+                }
+                if isCancelled {
+                    report.cancelled = true
+                    break
                 }
                 guard let move = ArrangementPlan.nextMove(in: layout, config: config, skipping: done, again: again),
                       let divider = layout.divider
@@ -170,7 +183,7 @@ public final class Arrangement {
             // divider, then sat left of it once collapsed; m4-mbp16-macos26-full.json: Docker, with
             // a full bar). The collapsed bar is what the user sees: check it once it has settled,
             // and move again whatever is on the wrong side there but wasn't while expanded.
-            guard wasCollapsed else { break }
+            guard wasCollapsed, !isCancelled else { break }
             driver.setCollapsed(true)
             await driver.sleep(milliseconds: timing.collapseSettleMilliseconds)
             _ = await driver.waitUntilSettled(
@@ -204,5 +217,12 @@ public final class Arrangement {
               let divider = windows.first(where: { $0.windowID == dividerID })
         else { return false }
         return (item.frame.midX < divider.frame.maxX) == (section == .dropdown)
+    }
+}
+
+extension Arrangement {
+    /// Stops a running arrangement before its next move; the menu bar is collapsed again as usual.
+    public func cancel() {
+        isCancelled = true
     }
 }

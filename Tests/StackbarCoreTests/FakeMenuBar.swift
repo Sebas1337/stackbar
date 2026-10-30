@@ -27,6 +27,8 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     var moves: [(UInt32, ArrangementPlan.Point)] = []
     /// Window ids that don't move when dragged.
     var failingMoves: Set<UInt32> = []
+    /// Runs after every move (tests cancel from here).
+    var onMove: (() -> Void)?
     /// Window ids that go back left of the divider when collapsing, how many times.
     var revertsOnCollapse: [UInt32: Int] = [:]
     /// The window each move's drop was aimed at (nil: a plain drag).
@@ -110,6 +112,7 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     func move(_ move: ArrangementPlan.Move) async {
         let id = move.item.window.windowID
         moves.append((id, move.point))
+        defer { onMove?() }
         roomDrops.append(move.dropWindowID)
         guard !failingMoves.contains(id),
               let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == id }),

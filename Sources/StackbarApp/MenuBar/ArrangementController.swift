@@ -11,6 +11,9 @@ final class ArrangementController {
     private let queue: MenuBarQueue
     let store: ConfigStore
     private let arrangement: Arrangement
+    /// Holds back the user's mouse and keyboard while items are dragged; Esc cancels.
+    private let blocker = InputBlocker()
+    private let hud = ArrangingHUD()
 
     /// The last run's report, for Settings.
     private(set) var lastReport: Arrangement.Report?
@@ -25,6 +28,12 @@ final class ArrangementController {
         self.queue = queue
         self.store = store
         arrangement = Arrangement(driver: menuBar, mover: CommandDragMover())
+        arrangement.onWillMove = { [weak self] in
+            guard let self else { return }
+            blocker.start()
+            hud.show(under: menuBar.icon.frame)
+        }
+        blocker.onEscape = { [weak self] in self?.arrangement.cancel() }
     }
 
     /// The user's choice in Settings: saved, then applied right away (blocked items tried again).
@@ -41,6 +50,8 @@ final class ArrangementController {
         queue.enqueue { [weak self] in
             guard let self else { return }
             let report = await arrangement.run(config: store.config, force: force)
+            blocker.stop()
+            hud.hide()
             lastReport = report
             pending -= 1
             logger.notice("\(report.description, privacy: .public)")
