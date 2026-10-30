@@ -27,6 +27,8 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     var moves: [(UInt32, ArrangementPlan.Point)] = []
     /// Window ids that don't move when dragged.
     var failingMoves: Set<UInt32> = []
+    /// The window each move's drop was aimed at (nil: a plain drag).
+    var roomDrops: [UInt32?] = []
 
     var capturesClippedItems = false
     var captured: [[UInt32]] = []
@@ -98,15 +100,48 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     }
 
     /// Lands the window just past the drop point in the expanded snapshot, like a real drop next
-    /// to the divider. The collapsed snapshot isn't updated: tests check the expanded layout.
-    func move(_ item: MenuBarItem, to point: ArrangementPlan.Point) async {
-        moves.append((item.window.windowID, point))
-        guard !failingMoves.contains(item.window.windowID),
-              let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == item.window.windowID }),
-              let divider = layout()?.divider
+    /// to the divider. A drop aimed at a clipped item (S11) puts the dragged item where that item
+    /// was and shifts it and everything up to the dragged item's old place right by the dragged
+    /// item's width; on-screen flags follow the notch. The collapsed snapshot isn't updated:
+    /// tests check the expanded layout.
+    func move(_ move: ArrangementPlan.Move) async {
+        let id = move.item.window.windowID
+        moves.append((id, move.point))
+        roomDrops.append(move.dropWindowID)
+        guard !failingMoves.contains(id),
+              let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == id }),
+              let layout = layout(), let divider = layout.divider
         else { return }
         let width = expandedSnapshot.windows[index].frame.width
-        expandedSnapshot.windows[index].frame.x = point.x < divider.frame.maxX ? point.x - width : point.x
+        guard let target = move.makesRoomFor else {
+            shift([(index, (move.point.x < divider.frame.maxX ? move.point.x - width : move.point.x) - expandedSnapshot.windows[index].frame.x)])
+            return
+        }
+        let from = target.window.frame.minX
+        let to = expandedSnapshot.windows[index].frame.minX
+        var shifts = expandedSnapshot.windows.indices.filter {
+            let window = expandedSnapshot.windows[$0]
+            return window.layer == WindowInfo.statusWindowLayer && window.frame.minX >= from && window.frame.minX < to
+        }.map { ($0, width) }
+        shifts.append((index, from - to))
+        shift(shifts)
+        for i in expandedSnapshot.windows.indices where expandedSnapshot.windows[i].layer == WindowInfo.statusWindowLayer {
+            expandedSnapshot.windows[i].isOnScreen = !NotchGeometry.hidesItem(at: expandedSnapshot.windows[i].frame, on: layout.screen)
+        }
+    }
+
+    /// Moves windows by their offsets, with the AX frames joined to them (content-frame center
+    /// inside the window), so the next `layout()` joins them the same way.
+    private func shift(_ shifts: [(index: Int, dx: Double)]) {
+        let old = shifts.map { expandedSnapshot.windows[$0.index].frame }
+        let axMoves = zip(shifts, old).flatMap { shift, frame in
+            expandedSnapshot.axItems.indices.filter { i in
+                guard let ax = expandedSnapshot.axItems[i].frame else { return false }
+                return frame.contains(x: ax.midX, y: ax.midY)
+            }.map { ($0, shift.dx) }
+        }
+        for shift in shifts { expandedSnapshot.windows[shift.index].frame.x += shift.dx }
+        for (i, dx) in axMoves { expandedSnapshot.axItems[i].frame?.x += dx }
     }
 
     private func openMenu() {

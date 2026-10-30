@@ -17,6 +17,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ### Changed
 - Items hidden left of the notch (under the app menus) now count as behind the notch.
+- Items behind the notch can be moved too: Stackbar first drops visible items onto them until
+  they come into view.
 
 ## [0.5.0] - 2026-10-29
 

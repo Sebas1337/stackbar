@@ -4,9 +4,10 @@ import Foundation
 /// step 5): expand → for each move: ⌘-drag, re-enumerate, verify, retry once → restore the
 /// collapsed state. Nothing misplaced: the menu bar isn't touched.
 ///
-/// Items behind the notch can't be grabbed (`ArrangementPlan.Blocker.clipped`). They are
-/// remembered, so an automatic re-apply doesn't expand the bar again just to find them blocked;
-/// a `force`d run (the user assigning in Settings) tries them again.
+/// Items behind the notch can't be grabbed. Visible items of their section are dropped onto them
+/// first until they come into view (S11, `ArrangementPlan.Move.makesRoomFor`). Items that stay
+/// out of reach are remembered, so an automatic re-apply doesn't expand the bar again just to
+/// find them blocked; a `force`d run (the user assigning in Settings) tries them again.
 @MainActor
 public final class Arrangement {
     public struct Report: Sendable, Equatable, CustomStringConvertible {
@@ -27,12 +28,14 @@ public final class Arrangement {
         public var failed: [UInt32] = []
         /// Still misplaced and impossible to move.
         public var blocked: [UInt32: ArrangementPlan.Blocker] = [:]
+        /// Drops onto items behind the notch that shifted them towards view.
+        public var roomMoves = 0
         public var isCollapsed: Bool
 
         public var description: String {
             let blocked = blocked.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value.rawValue)" }
             return "Arrangement: \(outcome.rawValue), moved \(moved.map(String.init)), failed \(failed.map(String.init)), "
-                + "blocked \(blocked), collapsed=\(isCollapsed)"
+                + "blocked \(blocked), room moves \(roomMoves), collapsed=\(isCollapsed)"
         }
     }
 
@@ -42,6 +45,8 @@ public final class Arrangement {
         /// How long a dragged item has to land on the other side: 1.5 s.
         public var movePolls = 30
         public var attemptsPerItem = 2
+        /// Drops onto one clipped item before giving up on it (S11 needed 3 for a 38 pt item).
+        public var roomMovesPerItem = 8
 
         public init() {}
     }
@@ -90,6 +95,7 @@ public final class Arrangement {
         }
 
         var attempts: [UInt32: Int] = [:]
+        var roomMoves: [UInt32: Int] = [:]
         var done: Set<UInt32> = []
         var last = start
         while let layout = driver.layout() {
@@ -97,8 +103,31 @@ public final class Arrangement {
             guard let move = ArrangementPlan.nextMove(in: layout, config: config, skipping: done),
                   let divider = layout.divider
             else { break }
+            await mover.move(move)
+            if let clipped = move.makesRoomFor {
+                // Making room: the clipped item has to shift right, and the dropped one has to stay
+                // in its section.
+                let id = clipped.window.windowID
+                let helper = move.item.window.windowID
+                roomMoves[id, default: 0] += 1
+                let shifted = await driver.waitUntilSettled(
+                    [id, helper], polls: timing.movePolls, intervalMilliseconds: timing.pollIntervalMilliseconds
+                ) { windows in
+                    (windows.first { $0.windowID == id }?.frame.minX ?? 0) > clipped.window.frame.minX + 1
+                        && Self.isInSection(move.section, helper, dividerID: divider.windowID, in: windows)
+                }
+                if shifted != nil {
+                    report.roomMoves += 1
+                } else {
+                    attempts[id, default: 0] += 1
+                }
+                if attempts[id, default: 0] >= timing.attemptsPerItem || roomMoves[id, default: 0] >= timing.roomMovesPerItem {
+                    report.failed.append(id)
+                    done.insert(id)
+                }
+                continue
+            }
             let id = move.item.window.windowID
-            await mover.move(move.item, to: move.point)
             attempts[id, default: 0] += 1
             let landed = await driver.waitUntilSettled(
                 [id], polls: timing.movePolls, intervalMilliseconds: timing.pollIntervalMilliseconds
@@ -115,7 +144,7 @@ public final class Arrangement {
         }
 
         let stillBlocked = ArrangementPlan.misplaced(in: last, config: config).compactMap { item in
-            ArrangementPlan.blocker(of: item).map { (item, $0) }
+            ArrangementPlan.blocker(of: item, in: last).map { (item, $0) }
         }
         report.blocked = Dictionary(stillBlocked.map { ($0.0.window.windowID, $0.1) }) { first, _ in first }
         blocked = Set(stillBlocked.compactMap(\.0.identity))

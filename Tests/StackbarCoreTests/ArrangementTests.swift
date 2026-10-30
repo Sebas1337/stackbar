@@ -60,10 +60,10 @@ struct ArrangementTests {
         func item(_ id: UInt32, _ layout: MenuBarLayout) throws -> MenuBarItem {
             try #require(layout.items.first { $0.window.windowID == id })
         }
-        #expect(ArrangementPlan.blocker(of: try item(Self.bluetooth, expanded)) == .clipped)
-        #expect(ArrangementPlan.blocker(of: try item(Self.clock, expanded)) == .immovable)
-        #expect(ArrangementPlan.blocker(of: try item(Self.sound, expanded)) == nil)
-        #expect(ArrangementPlan.blocker(of: try item(Self.sound, collapsed)) == .offScreen)
+        #expect(ArrangementPlan.blocker(of: try item(Self.bluetooth, expanded), in: expanded) == nil)
+        #expect(ArrangementPlan.blocker(of: try item(Self.clock, expanded), in: expanded) == .immovable)
+        #expect(ArrangementPlan.blocker(of: try item(Self.sound, expanded), in: expanded) == nil)
+        #expect(ArrangementPlan.blocker(of: try item(Self.sound, collapsed), in: collapsed) == .offScreen)
     }
 
     // MARK: Sequence
@@ -110,8 +110,54 @@ struct ArrangementTests {
         #expect(bar.moves.filter { $0.0 == Self.battery }.count == 2)
     }
 
-    @Test func itemsBehindTheNotchAreBlockedAndNotRetriedUnlessForced() async throws {
+    @Test func roomMoveDropsTheNearestVisibleDropdownItemOntoTheClippedOne() throws {
+        let bar = try FakeMenuBar(collapsed: false)
+        let layout = try #require(bar.layout())
+        let config = try Self.config(bar, [Self.bluetooth: .bar])
+        let move = try #require(ArrangementPlan.nextMove(in: layout, config: config))
+        let bluetooth = try #require(layout.items.first { $0.window.windowID == Self.bluetooth })
+        #expect(move.item.window.windowID == 1127)
+        #expect(move.section == .dropdown)
+        #expect(move.dropWindowID == Self.bluetooth)
+        #expect(move.point == .init(x: bluetooth.window.frame.minX + 2, y: bluetooth.window.frame.midY))
+    }
+
+    @Test func clippedItemIsBroughtIntoViewThenMoved() async throws {
         let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.bluetooth: .bar])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.roomMoves == 1)
+        #expect(report.moved == [Self.bluetooth])
+        #expect(report.blocked.isEmpty)
+        #expect(bar.roomDrops == [Self.bluetooth, nil])
+        #expect(Self.section(of: Self.bluetooth, in: bar) == .bar)
+        #expect(Self.section(of: 1127, in: bar) == .dropdown)
+        #expect(report.isCollapsed)
+    }
+
+    @Test func roomMovesThatDoNotShiftTheItemFailAfterTwoTries() async throws {
+        let bar = try FakeMenuBar(collapsed: false)
+        bar.failingMoves = [1127]
+        let config = try Self.config(bar, [Self.bluetooth: .bar])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.failed == [Self.bluetooth])
+        #expect(report.roomMoves == 0)
+        #expect(bar.moves.count == 2)
+    }
+
+    /// No visible dropdown item right of Bluetooth: nothing can make room.
+    static func withoutRoomMakers() throws -> FakeMenuBar {
+        let bar = try FakeMenuBar(collapsed: true)
+        let layout = try #require(MenuBarLayout.classify(bar.expandedSnapshot))
+        let visibleDropdown = Set(layout.dropdown.filter(\.window.isOnScreen).map(\.window.windowID))
+        for i in bar.expandedSnapshot.windows.indices where visibleDropdown.contains(bar.expandedSnapshot.windows[i].windowID) {
+            bar.expandedSnapshot.windows[i].isOnScreen = false
+        }
+        return bar
+    }
+
+    @Test func itemsBehindTheNotchAreBlockedAndNotRetriedUnlessForced() async throws {
+        let bar = try Self.withoutRoomMakers()
         let config = try Self.config(bar, [Self.bluetooth: .bar])
         let arrangement = Arrangement(driver: bar, mover: bar)
 

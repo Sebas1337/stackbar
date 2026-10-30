@@ -27,8 +27,8 @@ final class SettingsWindowController {
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: SettingsView(model: model))
         window.center()
-        model.onAssign = { [weak self] row, section in
-            guard let self, let item = row.item else { return }
+        model.onAssign = { [arranger] row, section in
+            guard let item = row.item else { return }
             arranger.assign(item, to: section, name: row.name)
         }
         arranger.onChange = { [weak self] in
@@ -76,7 +76,7 @@ final class SettingsWindowController {
         let id = item.window.windowID
         let assigned = item.identity.flatMap(config.section(for:))
         var caption: String?
-        var canMove = item.identity != nil && !item.isImmovable
+        let canMove = item.identity != nil && !item.isImmovable
         if item.isImmovable {
             caption = "macOS doesn't let this item move"
         } else if item.identity == nil {
@@ -86,7 +86,7 @@ final class SettingsWindowController {
                 caption = "Moving…"
             } else if let blocker = report?.blocked[id] {
                 caption = blocker == .clipped
-                    ? "Behind the notch: Stackbar can't reach it until there is room in the menu bar"
+                    ? "Behind the notch, with no visible item beside it to make room with"
                     : "Not moved (\(blocker.rawValue))"
             } else if report?.failed.contains(id) == true {
                 caption = "Couldn't move it; ⌘-drag it across the divider yourself"
@@ -94,9 +94,8 @@ final class SettingsWindowController {
                 caption = "Not moved yet"
             }
         } else if item.isClipped {
-            caption = "Behind the notch: can't be moved until there is room in the menu bar"
+            caption = "Behind the notch"
         }
-        if item.isClipped { canMove = false }
         return SettingsModel.Row(
             id: String(id),
             item: item,
