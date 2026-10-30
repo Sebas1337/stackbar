@@ -50,9 +50,19 @@ public enum ArrangementPlan {
     /// Unassigned items and items without identity are left alone.
     public static func misplaced(in layout: MenuBarLayout, config: StackbarConfig) -> [MenuBarItem] {
         layout.items.filter { item in
-            guard let identity = item.identity, let wanted = config.section(for: identity) else { return false }
+            guard let identity = item.identity, isArrangeable(identity, in: layout),
+                  let wanted = config.section(for: identity)
+            else { return false }
             return wanted != item.section
         }
+    }
+
+    /// An ordinal identity (no usable title, e.g. without Screen Recording) only stays with its
+    /// item while the app has one: with two, moving one across the other swaps their ordinals and
+    /// with them the assignments, and every run would swap them back.
+    public static func isArrangeable(_ identity: ItemIdentity, in layout: MenuBarLayout) -> Bool {
+        guard case .ordinal = identity.key else { return true }
+        return layout.items.filter { $0.identity?.bundleID == identity.bundleID }.count < 2
     }
 
     /// Why `item` can't be moved in `layout`, nil when it can (possibly after making room).

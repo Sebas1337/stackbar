@@ -54,3 +54,33 @@ struct DeadZoneTests {
         #expect(move.item.window.windowID == 6650)
     }
 }
+
+/// Review findings: nothing is clipped while the menu bar isn't shown, and ordinal identities of
+/// an app with several items aren't arranged.
+struct LayoutEdgeTests {
+    @Test func menuBarNotShownMeansNothingIsClipped() throws {
+        var snapshot = try FixtureTests.load("m4-mbp16-macos26-tight.json")
+        for i in snapshot.windows.indices where snapshot.windows[i].layer == WindowInfo.statusWindowLayer {
+            snapshot.windows[i].isOnScreen = false
+        }
+        let layout = try #require(MenuBarLayout.classify(snapshot))
+        #expect(layout.clipped.isEmpty)
+    }
+
+    @Test func ordinalIdentitiesOfAnAppWithTwoItemsAreNotArranged() throws {
+        // Without Screen Recording there are no titles: every identity is an ordinal.
+        var snapshot = try FixtureTests.load("m4-mbp16-macos26-tight.json")
+        for i in snapshot.windows.indices { snapshot.windows[i].title = nil }
+        let layout = try #require(MenuBarLayout.classify(snapshot))
+        let pair = layout.items.filter { $0.ax?.pid == 1440 }
+        #expect(pair.count == 2)
+        let lone = try #require(layout.items.first { $0.window.windowID == 5148 }) // Weather: its app's only item
+        var config = StackbarConfig()
+        for item in pair + [lone] {
+            let identity = try #require(item.identity)
+            config.assign(identity, to: item.section == .bar ? .dropdown : .bar, name: "x")
+        }
+        let misplaced = ArrangementPlan.misplaced(in: layout, config: config).map(\.window.windowID)
+        #expect(misplaced == [5148])
+    }
+}

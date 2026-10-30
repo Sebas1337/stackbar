@@ -10,7 +10,8 @@ private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category:
 /// in `eventSourceUserData`). Esc runs `onEscape` (cancels the arrangement). Needs Accessibility,
 /// which moves need anyway; public API.
 ///
-/// A timer ends the block after `maximumSeconds` whatever happens, so input can never stay locked.
+/// A timer ends the block after `maximumSeconds` whatever happens, so input can never stay locked;
+/// it runs `onTimeout` first (cancels the arrangement, so no drag runs with input unlocked).
 @MainActor
 final class InputBlocker {
     /// Stackbar's synthesized events carry this in `eventSourceUserData` and pass the tap.
@@ -20,10 +21,11 @@ final class InputBlocker {
     private var source: CFRunLoopSource?
     private var safety: Timer?
     var onEscape: () -> Void = {}
+    var onTimeout: () -> Void = {}
 
     var isActive: Bool { tap != nil }
 
-    func start(maximumSeconds: TimeInterval = 20) {
+    func start(maximumSeconds: TimeInterval = 60) {
         guard tap == nil, AXIsProcessTrusted() else { return }
         let types: [CGEventType] = [
             .mouseMoved, .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
@@ -49,6 +51,7 @@ final class InputBlocker {
         safety = Timer.scheduledTimer(withTimeInterval: maximumSeconds, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
                 logger.error("input blocker: safety timeout")
+                self?.onTimeout()
                 self?.stop()
             }
         }

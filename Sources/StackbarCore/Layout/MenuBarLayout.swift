@@ -68,6 +68,9 @@ public struct MenuBarLayout: Sendable, Equatable {
             }
         }
 
+        // In a full-screen space (or with an auto-hiding menu bar) every status window is off-screen:
+        // nothing is clipped then. Stackbar's icon is always in the bar, so it tells.
+        let menuBarShown = icon?.isOnScreen ?? true
         let items = joined.map { item in
             let window = item.window
             let isDropdown = divider.map { window.frame.midX < $0.frame.maxX } ?? false
@@ -77,7 +80,7 @@ public struct MenuBarLayout: Sendable, Equatable {
                 ax: item.axItem,
                 identity: identities[window.windowID],
                 section: isDropdown ? .dropdown : .bar,
-                isClipped: !window.isOnScreen && RevealCheck.isOnDisplay(window, screen: screen),
+                isClipped: menuBarShown && !window.isOnScreen && RevealCheck.isOnDisplay(window, screen: screen),
                 isImmovable: identities[window.windowID]?.isImmovable == true
                     || item.axItem?.identifier?.plainText.map(ItemIdentity.immovableAXIdentifiers.contains) == true
             )

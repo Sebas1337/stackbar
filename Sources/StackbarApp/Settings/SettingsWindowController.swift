@@ -31,6 +31,7 @@ final class SettingsWindowController {
             guard let item = row.item else { return }
             arranger.assign(item, to: section, name: row.name)
         }
+        model.onRetry = { [arranger] in arranger.apply(force: true) }
         arranger.onChange = { [weak self] in
             guard let self, window.isVisible else { return }
             reload()
@@ -51,9 +52,8 @@ final class SettingsWindowController {
         let layout = menuBar.layout()
         let config = arranger.store.config
         let report = arranger.lastReport
-        let items = layout?.items ?? []
-        var rows = items.map { item in row(for: item, config: config, report: report) }
-        let present = Set(items.compactMap(\.identity))
+        var rows = layout.map { layout in layout.items.map { item in row(for: item, in: layout, config: config, report: report) } } ?? []
+        let present = Set((layout?.items ?? []).compactMap(\.identity))
         for (index, assignment) in config.assignments.enumerated() where !present.contains(assignment.identity) {
             rows.append(SettingsModel.Row(
                 id: "saved:\(index)",
@@ -62,7 +62,8 @@ final class SettingsWindowController {
                 name: assignment.name,
                 section: assignment.section,
                 caption: "Not in the menu bar (app not running)",
-                canMove: false
+                canMove: false,
+                canRetry: false
             ))
         }
         model.rows = rows
@@ -71,17 +72,22 @@ final class SettingsWindowController {
         model.status = status(report)
     }
 
-    private func row(for item: MenuBarItem, config: StackbarConfig, report: Arrangement.Report?) -> SettingsModel.Row {
+    private func row(for item: MenuBarItem, in layout: MenuBarLayout, config: StackbarConfig, report: Arrangement.Report?) -> SettingsModel.Row {
         let appearance = ItemAppearance(item, capturer: capturer)
         let id = item.window.windowID
         let assigned = item.identity.flatMap(config.section(for:))
         var caption: String?
-        let canMove = item.identity != nil && !item.isImmovable
+        var canRetry = false
+        let arrangeable = item.identity.map { ArrangementPlan.isArrangeable($0, in: layout) } ?? false
+        let canMove = arrangeable && !item.isImmovable
         if item.isImmovable {
             caption = "macOS doesn't let this item move"
         } else if item.identity == nil {
             caption = "Unknown app"
+        } else if !arrangeable {
+            caption = "Can't tell it apart from its app's other items: grant Screen Recording"
         } else if let assigned, assigned != item.section {
+            canRetry = !arranger.isRunning
             if arranger.isRunning {
                 caption = "Moving…"
             } else if let blocker = report?.blocked[id] {
@@ -89,16 +95,16 @@ final class SettingsWindowController {
                     ? "Behind the notch, with no visible item beside it to make room with"
                     : "Not moved (\(blocker.rawValue))"
             } else if report?.outOfRoom.contains(id) == true {
-                caption = "No room: with this full a menu bar, macOS hides it next to the notch where Stackbar can't reach it"
+                caption = "No room: with this full a menu bar, it sits next to the notch where Stackbar can't reach it"
             } else if report?.reverted.contains(id) == true {
-                caption = "macOS put it back when the menu bar collapsed; drag it again to retry"
+                caption = "macOS put it back when the menu bar collapsed"
             } else if report?.failed.contains(id) == true {
-                caption = "Couldn't move it; ⌘-drag it across the divider yourself"
+                caption = "Couldn't move it"
             } else {
                 caption = "Not moved yet"
             }
         } else if item.isClipped {
-            caption = item.section == .bar ? "Hidden: the menu bar is full. Open it from the panel" : "Behind the notch"
+            caption = item.section == .bar ? "Doesn't fit next to the notch: the menu bar is full. Open it from the panel" : "Behind the notch"
         }
         return SettingsModel.Row(
             id: String(id),
@@ -107,7 +113,8 @@ final class SettingsWindowController {
             name: appearance.name,
             section: assigned ?? item.section,
             caption: caption,
-            canMove: canMove
+            canMove: canMove,
+            canRetry: canRetry
         )
     }
 
@@ -118,9 +125,9 @@ final class SettingsWindowController {
         if layout?.divider == nil {
             return "Stackbar couldn't find its divider in the menu bar. Try again in a moment."
         }
-        if let hidden = layout?.bar.filter(\.isClipped), !hidden.isEmpty {
-            return "The menu bar is full: \(hidden.count) item\(hidden.count == 1 ? " doesn't" : "s don't") fit and macOS hides "
-                + "\(hidden.count == 1 ? "it" : "them"). They're in the panel; move some items to the Dropdown to make room."
+        if let clipped = layout?.bar.filter(\.isClipped), !clipped.isEmpty {
+            return "The menu bar is full: \(clipped.count) item\(clipped.count == 1 ? " doesn't" : "s don't") fit next to the notch. "
+                + "They're in the panel; move some items to the Dropdown to make room."
         }
         return nil
     }

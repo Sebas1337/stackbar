@@ -58,13 +58,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if menuBar.isSetUp {
-            // Put items back where the user wants them, then restore the collapsed state of the
-            // last quit. The new status items need a moment to show up in the window list.
+            // Restore the collapsed state of the last quit, then put items back where the user wants
+            // them: collapsed, the arrangement takes its collapsed path and checks the collapsed bar
+            // afterwards. The new status items need a moment to show up in the window list.
             queue.enqueue { try? await Task.sleep(for: .seconds(1)) }
-            arranger.apply(force: false)
             if store.config.isCollapsed {
                 queue.enqueue { [weak menuBar] in menuBar?.setCollapsed(true) }
             }
+            arranger.apply(force: false)
             watcher.start()
         } else {
             onboarding.show()

@@ -162,6 +162,21 @@ struct ArrangementTests {
         #expect(bar.moves.count == 1)
         #expect(bar.collapseCalls.isEmpty)
         #expect(report.isCollapsed)
+        // Sound was never tried: not remembered as out of reach.
+        #expect(arrangement.needsRun(try #require(bar.layout()), config: config))
+    }
+
+    /// S9 fails for this item while collapsed; the expanded pass's plain drag still moves it.
+    @Test func collapsedFailureIsRetriedExpanded() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        bar.failingTargetedMoves = [Self.battery]
+        let config = try Self.config(bar, [Self.battery: .dropdown])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.moved == [Self.battery])
+        #expect(report.failed.isEmpty)
+        #expect(bar.roomDrops.contains(nil))
+        #expect(bar.collapseCalls.first == false)
+        #expect(report.isCollapsed)
     }
 
     @Test func upToDateDoesNotAnnounceMoves() async throws {
@@ -216,10 +231,14 @@ struct ArrangementTests {
         let bar = try FakeMenuBar(collapsed: false)
         bar.failingMoves = [Self.battery]
         let config = try Self.config(bar, [Self.battery: .dropdown, Self.sound: .bar])
-        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        let arrangement = Arrangement(driver: bar, mover: bar)
+        let report = await arrangement.run(config: config)
         #expect(report.failed == [Self.battery])
         #expect(report.moved == [Self.sound])
         #expect(bar.moves.filter { $0.0 == Self.battery }.count == 2)
+        // Not retried by automatic re-applies, only when forced.
+        #expect(!arrangement.needsRun(try #require(bar.layout()), config: config))
+        #expect(arrangement.needsRun(try #require(bar.layout()), config: config, force: true))
     }
 
     @Test func roomMoveDropsTheNearestVisibleDropdownItemOntoTheClippedOne() throws {

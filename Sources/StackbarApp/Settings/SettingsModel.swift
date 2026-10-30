@@ -17,6 +17,8 @@ final class SettingsModel {
         /// Why it can't be moved, or what is happening to it.
         var caption: String?
         var canMove: Bool
+        /// Assigned but not on its side (failed, out of room, put back): offer to try again.
+        var canRetry: Bool
     }
 
     var rows: [Row] = []
@@ -27,6 +29,7 @@ final class SettingsModel {
     /// The captured images were drawn for the menu bar: they get its background.
     var menuBarIsDark = false
     @ObservationIgnored var onAssign: (Row, Section) -> Void = { _, _ in }
+    @ObservationIgnored var onRetry: () -> Void = {}
 
     func rows(in section: Section) -> [Row] {
         rows.filter { $0.section == section }

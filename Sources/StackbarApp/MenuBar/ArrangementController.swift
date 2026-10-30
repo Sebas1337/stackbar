@@ -34,6 +34,7 @@ final class ArrangementController {
             hud.show(under: menuBar.icon.frame)
         }
         blocker.onEscape = { [weak self] in self?.arrangement.cancel() }
+        blocker.onTimeout = { [weak self] in self?.arrangement.cancel() }
     }
 
     /// The user's choice in Settings: saved, then applied right away (blocked items tried again).

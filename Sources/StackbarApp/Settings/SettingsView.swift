@@ -58,6 +58,9 @@ private struct SectionList: View {
                                         model.onAssign(row, other)
                                     }
                                 }
+                                if row.canRetry {
+                                    Button("Try Again") { model.onRetry() }
+                                }
                             }
                     }
                 }

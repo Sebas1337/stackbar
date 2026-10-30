@@ -36,8 +36,8 @@ final class DropdownModel {
     @ObservationIgnored var onSettings: () -> Void = {}
 
     var dropdownItems: [Item] { items.filter { $0.menuBarItem.section == .dropdown } }
-    /// Bar items macOS hides because the bar is full (`MenuBarLayout.panelItems`).
-    var hiddenBarItems: [Item] { items.filter { $0.menuBarItem.section == .bar } }
+    /// Clipped bar items: the menu bar is full (`MenuBarLayout.panelItems`).
+    var clippedBarItems: [Item] { items.filter { $0.menuBarItem.section == .bar } }
 
     /// All images in one column, as wide as the widest item.
     var imageColumnWidth: CGFloat { items.map(\.size.width).max() ?? 0 }
@@ -64,15 +64,15 @@ struct DropdownView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(model.dropdownItems) { item in row(item) }
-            if !model.hiddenBarItems.isEmpty {
-                // Bar items a full menu bar hides: reachable nowhere else.
-                Text("Hidden: the menu bar is full")
+            if !model.clippedBarItems.isEmpty {
+                // Clipped bar items (the menu bar is full): reachable nowhere else.
+                Text("Behind the notch: the menu bar is full")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.top, model.dropdownItems.isEmpty ? 2 : 8)
                     .padding(.bottom, 2)
-                ForEach(model.hiddenBarItems) { item in row(item) }
+                ForEach(model.clippedBarItems) { item in row(item) }
             }
             if let footer = model.footer {
                 HStack(alignment: .firstTextBaseline) {

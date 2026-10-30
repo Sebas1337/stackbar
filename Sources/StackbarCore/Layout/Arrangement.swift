@@ -93,8 +93,11 @@ public final class Arrangement {
 
     /// What one run has done so far, per window id.
     private struct RunState {
+        /// Drags of the item itself that didn't land.
         var attempts: [UInt32: Int] = [:]
+        /// Drops onto the (clipped) item, and how many of them didn't shift it.
         var roomMoves: [UInt32: Int] = [:]
+        var roomFailures: [UInt32: Int] = [:]
         /// Moved, or given up on.
         var done: Set<UInt32> = []
     }
@@ -109,17 +112,32 @@ public final class Arrangement {
         }
         isCancelled = false
         onWillMove?()
+        // Window ids stay the same while collapsing and expanding: the identities to remember.
+        let identities = Dictionary(start.items.compactMap { item in item.identity.map { (item.window.windowID, $0) } }) { a, _ in a }
         var state = RunState()
 
         // Bar → dropdown first, while collapsed (S9): no flash, and it works with a full bar.
         if wasCollapsed {
+            var collapsedState = RunState()
+            var collapsedReport = report
             while let layout = driver.layout(), !isCancelled,
-                  let move = ArrangementPlan.nextCollapsedMove(in: layout, config: config, skipping: state.done),
+                  let move = ArrangementPlan.nextCollapsedMove(in: layout, config: config, skipping: collapsedState.done),
                   let divider = layout.divider {
-                await perform(move, dividerID: divider.windowID, state: &state, report: &report)
+                await perform(move, dividerID: divider.windowID, state: &collapsedState, report: &collapsedReport)
             }
-            if isCancelled { report.cancelled = true }
-            guard !isCancelled, let now = driver.layout(), needsRun(now, config: config, force: force) else {
+            // What moved is done; what failed here still gets the expanded pass's plain drag.
+            report.moved = collapsedReport.moved
+            report.roomMoves = collapsedReport.roomMoves
+            report.steps = collapsedReport.steps
+            state.done = Set(collapsedReport.moved)
+            if isCancelled {
+                // Nothing is recorded as blocked: untried items weren't out of reach.
+                report.cancelled = true
+                report.outcome = .arranged
+                report.isCollapsed = driver.isCollapsed
+                return report
+            }
+            guard let now = driver.layout(), needsRun(now, config: config, force: force) else {
                 if let now = driver.layout() { recordBlocked(in: now, config: config, report: &report) }
                 report.outcome = .arranged
                 report.isCollapsed = driver.isCollapsed
@@ -186,8 +204,9 @@ public final class Arrangement {
             }
             again = Set(reverted.map(\.window.windowID))
         }
-        // Items that keep going back aren't retried automatically either.
+        // Items that keep going back or can't be moved aren't retried automatically either.
         blocked.formUnion(reverted.compactMap(\.identity))
+        blocked.formUnion(report.failed.compactMap { identities[$0] })
         if wasCollapsed && !driver.isCollapsed { driver.setCollapsed(true) }
         report.outcome = .arranged
         report.isCollapsed = driver.isCollapsed
@@ -223,9 +242,9 @@ public final class Arrangement {
             if shifted != nil {
                 report.roomMoves += 1
             } else {
-                state.attempts[id, default: 0] += 1
+                state.roomFailures[id, default: 0] += 1
             }
-            if state.attempts[id, default: 0] >= timing.attemptsPerItem || state.roomMoves[id, default: 0] >= timing.roomMovesPerItem {
+            if state.roomFailures[id, default: 0] >= timing.attemptsPerItem || state.roomMoves[id, default: 0] >= timing.roomMovesPerItem {
                 report.failed.append(id)
                 report.outOfRoom.append(id)
                 state.done.insert(id)
