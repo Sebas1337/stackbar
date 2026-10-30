@@ -78,6 +78,11 @@ final class StatusIconController: NSObject {
         menu.insertItem(item, at: 3)
     }
 
+    /// Adds "Check for Updates…" below Settings. Call after `installSettingsItem`.
+    func installUpdateItem(_ check: @escaping () -> Void) {
+        menu.insertItem(NSMenuItem(title: "Check for Updates…", action: check), at: 4)
+    }
+
     /// Adds the Debug submenu above Quit.
     func installDebugMenu(_ debug: DebugController) {
         let quitIndex = menu.items.count - 1

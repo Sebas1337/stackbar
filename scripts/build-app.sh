@@ -3,10 +3,13 @@
 # and the commit count as build number. Signed with $SIGN_IDENTITY (default "Stackbar Dev", see
 # make-dev-cert.sh), or ad-hoc when that identity isn't in the keychain (CI, or before `make cert`).
 #
+# REQUIRE_IDENTITY=1: fail instead of signing ad-hoc (releases: docs/RELEASING.md).
+#
 # ARCHS: space-separated architectures, default the host's. "arm64 x86_64" builds a universal
 # binary (release and CI do, because macOS 26 still runs on some Intel Macs).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib/signing.sh
 
 identity="${SIGN_IDENTITY:-Stackbar Dev}"
 archs="${ARCHS:-$(uname -m)}"
@@ -41,8 +44,7 @@ if [ "$(plutil -extract LSMinimumSystemVersion raw "$plist")" != "$min_macos" ];
 fi
 xattr -cr "$bundle" 2>/dev/null || true
 
-# Sign by certificate hash: a name can match several identities (e.g. after re-creating the cert).
-hash="$(security find-identity -v -p codesigning | awk -v name="\"$identity\"" 'index($0, name) { print $2; exit }')"
+hash="$(require_signing_hash "$identity")"
 if [ -n "$hash" ]; then
   codesign --force --options runtime --sign "$hash" "$bundle"
 else

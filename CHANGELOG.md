@@ -10,6 +10,10 @@ All notable changes to Stackbar are documented here. The format follows
 - Settings → General: open Stackbar at login (also offered at the end of setup), a keyboard
   shortcut that opens the dropdown from anywhere, and collapsing the menu bar again
   automatically after Show All Items.
+- Updates: Stackbar checks GitHub Releases once a day (or Check for Updates… in the icon's menu)
+  and installs a new version in place when you agree, keeping its permissions.
+- Releases come as a DMG signed with a stable certificate: macOS asks to confirm the first launch
+  once ("Open Anyway"), not after every update.
 
 ### Changed
 - Moving items is about twice as fast.

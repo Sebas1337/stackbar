@@ -2,19 +2,21 @@ import Foundation
 import StackbarCore
 
 /// Applies Settings → General (docs/PLAN.md M5): Open at Login (`LoginItem`), the shortcut
-/// (`HotKeyCenter`) and auto-collapse (the watcher's `AutoCollapse`). The shortcut and the
-/// auto-collapse delay are kept in the config.
+/// (`HotKeyCenter`), auto-collapse (the watcher's `AutoCollapse`) and update checks
+/// (`UpdateController`). Everything but Open at Login is kept in the config.
 @MainActor
 final class GeneralSettingsController {
     let model = GeneralSettingsModel()
     private let store: ConfigStore
     private let hotKeys: HotKeyCenter
     private let watcher: MenuBarWatcher
+    private let updates: UpdateController
 
-    init(store: ConfigStore, hotKeys: HotKeyCenter, watcher: MenuBarWatcher) {
+    init(store: ConfigStore, hotKeys: HotKeyCenter, watcher: MenuBarWatcher, updates: UpdateController) {
         self.store = store
         self.hotKeys = hotKeys
         self.watcher = watcher
+        self.updates = updates
         model.onOpensAtLogin = { [weak self] in self?.setOpensAtLogin($0) }
         model.onOpenLoginItems = { LoginItem.openSystemSettings() }
         model.onHotKey = { [weak self] in self?.setHotKey($0) }
@@ -27,6 +29,12 @@ final class GeneralSettingsController {
             }
         }
         model.onAutoCollapse = { [weak self] in self?.setAutoCollapse($0) }
+        model.onChecksForUpdates = { [weak self] enabled in
+            self?.store.update { $0.checksForUpdates = enabled }
+            self?.model.checksForUpdates = enabled
+        }
+        model.onCheckNow = { [updates] in updates.check(userInitiated: true) }
+        updates.onChange = { [weak self] in self?.model.updateStatus = self?.updates.status }
     }
 
     /// At launch: the stored shortcut and auto-collapse delay take effect.
@@ -41,6 +49,8 @@ final class GeneralSettingsController {
         model.loginNeedsApproval = LoginItem.needsApproval
         model.hotKey = store.config.hotKey
         model.autoCollapseSeconds = store.config.autoCollapseSeconds
+        model.checksForUpdates = store.config.checksForUpdates
+        model.updateStatus = updates.status
     }
 
     /// Settings is closing: a recording in progress is dropped.

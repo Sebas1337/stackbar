@@ -1,9 +1,11 @@
-# `make build` / `make test` work everywhere; `app`, `run` and `cert` need the macOS host.
+# `make build` / `make test` work everywhere; `app`, `dmg`, `run`, `cert` and `release-cert` need
+# the macOS host.
 SIGN_IDENTITY ?= Stackbar Dev
 ARCHS ?= $(shell uname -m)
+REQUIRE_IDENTITY ?= 0
 APP := build/Stackbar.app
 
-.PHONY: build test app run cert clean
+.PHONY: build test app dmg run cert release-cert clean
 
 build:
 	swift build
@@ -21,8 +23,13 @@ test:
 	swift test $(TEST_FLAGS)
 
 # ARCHS="arm64 x86_64" builds a universal binary (default: host architecture only).
+# REQUIRE_IDENTITY=1 fails instead of falling back to ad-hoc signing (the release workflow).
 app:
-	SIGN_IDENTITY="$(SIGN_IDENTITY)" ARCHS="$(ARCHS)" scripts/build-app.sh
+	SIGN_IDENTITY="$(SIGN_IDENTITY)" ARCHS="$(ARCHS)" REQUIRE_IDENTITY="$(REQUIRE_IDENTITY)" scripts/build-app.sh
+
+# dist/Stackbar-<VERSION>.dmg from the app.
+dmg: app
+	SIGN_IDENTITY="$(SIGN_IDENTITY)" REQUIRE_IDENTITY="$(REQUIRE_IDENTITY)" scripts/make-dmg.sh
 
 # Quit a running Stackbar first (force after 5 s) and wait for it to exit, so `open` launches the
 # new build instead of re-activating the old one.
@@ -36,5 +43,9 @@ run: app
 cert:
 	SIGN_IDENTITY="$(SIGN_IDENTITY)" scripts/make-dev-cert.sh
 
+# One-time: the "Stackbar Release" certificate for the release workflow (docs/RELEASING.md).
+release-cert:
+	scripts/make-release-cert.sh
+
 clean:
-	rm -rf build
+	rm -rf build dist
