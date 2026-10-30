@@ -7,8 +7,8 @@ final class OnboardingWindowController {
     private let window: NSWindow
     private let model = OnboardingModel()
     private var timer: Timer?
-    /// Runs when the user finishes the last step.
-    var onFinish: () -> Void = {}
+    /// Runs when the user finishes the last step, with the Open at Login choice.
+    var onFinish: (_ opensAtLogin: Bool) -> Void = { _ in }
 
     init(openSettings: @escaping () -> Void) {
         window = NSWindow(
@@ -25,7 +25,7 @@ final class OnboardingWindowController {
         model.onFinish = { [weak self] in
             guard let self else { return }
             window.close()
-            onFinish()
+            onFinish(model.opensAtLogin)
         }
         // The permission state is polled only while the window is open.
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
@@ -38,6 +38,7 @@ final class OnboardingWindowController {
 
     func show() {
         model.step = .welcome
+        model.opensAtLogin = true
         model.permissions = PermissionState.current
         if timer == nil {
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in

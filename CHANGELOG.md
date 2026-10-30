@@ -6,6 +6,11 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Settings → General: open Stackbar at login (also offered at the end of setup), a keyboard
+  shortcut that opens the dropdown from anywhere, and collapsing the menu bar again
+  automatically after Show All Items.
+
 ## [0.6.1] - 2026-10-30
 
 ### Fixed
