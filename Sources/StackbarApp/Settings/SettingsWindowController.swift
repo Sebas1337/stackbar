@@ -37,6 +37,8 @@ final class SettingsWindowController {
         }
     }
 
+    var isVisible: Bool { window.isVisible }
+
     func show() {
         reload()
         captureMissingImages()

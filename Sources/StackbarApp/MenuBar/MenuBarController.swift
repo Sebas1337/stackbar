@@ -29,6 +29,9 @@ final class MenuBarController {
         )
     }
 
+    /// Until onboarding has finished, collapsing is refused (docs/PLAN.md, Decisions → First run).
+    var isSetUp = true
+
     /// Why the last collapse was refused, for the user; nil after a successful change.
     private(set) var refusal: String?
 
@@ -46,6 +49,11 @@ final class MenuBarController {
     func setCollapsed(_ collapsed: Bool) -> Bool {
         guard collapsed != isCollapsed else { return true }
         if collapsed {
+            guard isSetUp else {
+                log("Collapse refused: setup not finished")
+                refusal = "Finish setting up Stackbar first: click the Stackbar icon."
+                return false
+            }
             let windows = WindowListReader.windows()
             let layout = MenuBarLayout.classify(
                 screens: ScreenReader.screens(),

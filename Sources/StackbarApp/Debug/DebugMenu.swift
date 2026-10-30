@@ -17,6 +17,7 @@ enum DebugMenu {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Request Accessibility") { PermissionState.requestAccessibility() })
         menu.addItem(NSMenuItem(title: "Request Screen Recording") { PermissionState.requestScreenRecording() })
+        menu.addItem(NSMenuItem(title: "Reset Onboarding") { debug.resetOnboarding?() })
         menu.addItem(.separator())
         let privateCapture = NSMenuItem(title: Self.privateCaptureTitle) { [weak menu] in
             ItemCapturer.usesPrivateCapture.toggle()

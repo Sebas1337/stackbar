@@ -73,7 +73,7 @@ public struct MenuBarLayout: Sendable, Equatable {
                 ax: item.axItem,
                 identity: identities[window.windowID],
                 section: isDropdown ? .dropdown : .bar,
-                isClipped: !window.isOnScreen && NotchGeometry.overlapsNotch(window.frame, on: screen),
+                isClipped: !window.isOnScreen && NotchGeometry.hidesItem(at: window.frame, on: screen),
                 isImmovable: identities[window.windowID]?.isImmovable == true
                     || item.axItem?.identifier?.plainText.map(ItemIdentity.immovableAXIdentifiers.contains) == true
             )

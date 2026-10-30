@@ -22,3 +22,14 @@ public enum NotchGeometry {
         return frame.intersects(notch)
     }
 }
+
+extension NotchGeometry {
+    /// True when an off-screen item at `frame` is hidden by the notch rather than pushed off the
+    /// display by the divider: it overlaps the notch, or sits between the display's left edge and
+    /// the notch, where macOS puts items that don't fit right of it but doesn't show them while the
+    /// app menus take that space (window 93 in the m4 fixture).
+    public static func hidesItem(at frame: Rect, on screen: ScreenInfo) -> Bool {
+        guard let notch = notch(of: screen) else { return false }
+        return frame.maxX > screen.frame.minX && frame.minX < notch.maxX
+    }
+}

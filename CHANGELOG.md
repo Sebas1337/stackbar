@@ -10,6 +10,13 @@ All notable changes to Stackbar are documented here. The format follows
 - Settings window (icon menu → Settings…, or the gear in the panel): drag items between the Menu
   Bar and Dropdown lists and Stackbar moves them in the menu bar for you. The cursor is hidden
   while it does. Your choices are saved.
+- Stackbar puts items back on their side when their app restarts or new ones appear (once you
+  haven't touched mouse or keyboard for 2 seconds), and restores the collapsed menu bar at launch.
+- First-run setup that explains and asks for Accessibility and Screen Recording. Until it is
+  finished, clicking the icon opens it.
+
+### Changed
+- Items hidden left of the notch (under the app menus) now count as behind the notch.
 
 ## [0.5.0] - 2026-10-29
 

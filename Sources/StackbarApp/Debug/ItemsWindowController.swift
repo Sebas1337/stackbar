@@ -251,6 +251,44 @@ final class ItemsModel {
         status = result.message
     }
 
+    // MARK: S11 (M4)
+
+    /// S11: the selected item is behind the notch (clipped), which a ⌘-drag can't grab. Drag the
+    /// nearest visible item right of it onto it instead, aiming the drop at the clipped item's
+    /// window like S9 did for off-screen drops. Landing left of it shifts the clipped item right,
+    /// maybe into view.
+    func makeRoom() {
+        guard let row = selectedRow else { return }
+        guard !isCollapsed else {
+            status = "Expand first: the visible item to drag is a dropdown item."
+            return
+        }
+        guard let layout = debug.menuBar.layout(),
+              let target = layout.items.first(where: { $0.window.windowID == row.window.windowID }),
+              target.isClipped
+        else {
+            status = "Select an item behind the notch (Section says clipped)."
+            return
+        }
+        guard let visible = layout.items.first(where: {
+            $0.window.isOnScreen && !$0.isImmovable && $0.window.frame.minX > target.window.frame.maxX
+        }) else {
+            status = "No visible item right of it to drag."
+            return
+        }
+        let drop = CGPoint(x: target.window.frame.minX + 2, y: target.window.frame.midY)
+        run {
+            let drag = await SpikeActions.targetedDrag(
+                visible.window, to: drop, targetWindowID: target.window.windowID, label: "S11 onto clipped"
+            )
+            let after = WindowListReader.windows().first { $0.windowID == target.window.windowID }
+            return SpikeActions.log(
+                "S11 clipped window \(target.window.windowID) x=\(Int(target.window.frame.x)) → x=\(after.map { String(Int($0.frame.x)) } ?? "gone") onScreen=\(after?.isOnScreen ?? false) after dragging window \(visible.window.windowID); \(drag)",
+                nil
+            ).message
+        }
+    }
+
     // MARK: Permissions
 
     func requestAccessibility() {
@@ -332,6 +370,8 @@ struct ItemsView: View {
                     Button("Move back left of divider (S9)") { model.moveBack() }
                     Divider().frame(height: 16)
                     Button("Private capture (S10)") { model.privateCapture() }
+                    Divider().frame(height: 16)
+                    Button("Make room behind the notch (S11)") { model.makeRoom() }
                     Spacer()
                 }
                 .disabled(model.selection == nil || model.busy)
