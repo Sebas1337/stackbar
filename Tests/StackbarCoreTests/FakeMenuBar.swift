@@ -4,7 +4,7 @@ import Foundation
 /// The notched MacBook Pro's menu bar from the m2 fixtures: collapsed and expanded are real
 /// dumps of the same items, so window ids match. Answers like the app's adapters would.
 @MainActor
-final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
+final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving {
     var collapsedSnapshot: DiagnosticsSnapshot
     var expandedSnapshot: DiagnosticsSnapshot
 
@@ -23,6 +23,18 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     var menuReads = 0
     private var remainingMenuReads = 0
 
+    /// Every ⌘-drag: window id and drop point.
+    var moves: [(UInt32, ArrangementPlan.Point)] = []
+    /// Window ids that don't move when dragged.
+    var failingMoves: Set<UInt32> = []
+    /// Window ids whose window-targeted (S9) drags fail; plain drags still work.
+    var failingTargetedMoves: Set<UInt32> = []
+    /// Runs after every move (tests cancel from here).
+    var onMove: (() -> Void)?
+    /// Window ids that go back left of the divider when collapsing, how many times.
+    var revertsOnCollapse: [UInt32: Int] = [:]
+    /// The window each move's drop was aimed at (nil: a plain drag).
+    var roomDrops: [UInt32?] = []
 
     var capturesClippedItems = false
     var captured: [[UInt32]] = []
@@ -60,6 +72,7 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
     func setCollapsed(_ collapsed: Bool) -> Bool {
         collapseCalls.append(collapsed)
         if collapsed && refusesCollapse { return false }
+        if collapsed && !isCollapsed && !moves.isEmpty { syncCollapsed() }
         isCollapsed = collapsed
         return true
     }
@@ -93,8 +106,108 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing {
         openMenu()
     }
 
+    /// Lands the window just past the drop point in the expanded snapshot, like a real drop next
+    /// to the divider. A drop aimed at a clipped item (S11) puts the dragged item where that item
+    /// was and shifts it and everything up to the dragged item's old place right by the dragged
+    /// item's width; on-screen flags follow the notch. The collapsed snapshot isn't updated:
+    /// tests check the expanded layout.
+    func move(_ move: ArrangementPlan.Move) async {
+        let id = move.item.window.windowID
+        moves.append((id, move.point))
+        defer { onMove?() }
+        roomDrops.append(move.dropWindowID)
+        guard !(move.dropTarget != nil && failingTargetedMoves.contains(id)) else { return }
+        guard !failingMoves.contains(id),
+              let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == id })
+        else { return }
+        if isCollapsed {
+            // S9: a bar item dropped left of the collapsed divider lands next to it.
+            // The bar items left of its old place close the gap (status items are right-aligned),
+            // the dropdown items make room.
+            guard move.dropTarget != nil, let divider = MenuBarLayout.classify(expandedSnapshot)?.divider else { return }
+            let frame = expandedSnapshot.windows[index].frame
+            var shifts = expandedSnapshot.windows.indices.compactMap { i -> (index: Int, dx: Double)? in
+                let window = expandedSnapshot.windows[i]
+                guard i != index, window.layer == WindowInfo.statusWindowLayer, window.frame.height <= 50 else { return nil }
+                if window.frame.maxX <= divider.frame.maxX { return (i, -frame.width) }
+                if window.frame.minX < frame.minX { return (i, frame.width) }
+                return nil
+            }
+            shifts.append((index, divider.frame.minX - frame.maxX))
+            shift(shifts)
+            syncCollapsed()
+            return
+        }
+        guard let layout = layout(), let divider = layout.divider else { return }
+        let width = expandedSnapshot.windows[index].frame.width
+        guard let target = move.makesRoomFor else {
+            shift([(index, (move.point.x < divider.frame.maxX ? move.point.x - width : move.point.x) - expandedSnapshot.windows[index].frame.x)])
+            return
+        }
+        let from = target.window.frame.minX
+        let to = expandedSnapshot.windows[index].frame.minX
+        var shifts = expandedSnapshot.windows.indices.filter {
+            let window = expandedSnapshot.windows[$0]
+            return window.layer == WindowInfo.statusWindowLayer && window.frame.minX >= from && window.frame.minX < to
+        }.map { ($0, width) }
+        shifts.append((index, from - to))
+        shift(shifts)
+        for i in expandedSnapshot.windows.indices where expandedSnapshot.windows[i].layer == WindowInfo.statusWindowLayer {
+            expandedSnapshot.windows[i].isOnScreen = !Self.hiddenByNotch(expandedSnapshot.windows[i].frame, on: layout.screen)
+        }
+    }
+
+    /// Moves windows by their offsets, with the AX frames joined to them (content-frame center
+    /// inside the window), so the next `layout()` joins them the same way.
+    private func shift(_ shifts: [(index: Int, dx: Double)]) {
+        Self.shift(&expandedSnapshot, shifts)
+    }
+
+    private static func shift(_ snapshot: inout DiagnosticsSnapshot, _ shifts: [(index: Int, dx: Double)]) {
+        let old = shifts.map { snapshot.windows[$0.index].frame }
+        let axMoves = zip(shifts, old).flatMap { shift, frame in
+            snapshot.axItems.indices.filter { i in
+                guard let ax = snapshot.axItems[i].frame else { return false }
+                return frame.contains(x: ax.midX, y: ax.midY)
+            }.map { ($0, shift.dx) }
+        }
+        for shift in shifts { snapshot.windows[shift.index].frame.x += shift.dx }
+        for (i, dx) in axMoves { snapshot.axItems[i].frame?.x += dx }
+    }
+
+    /// After moves, collapsing derives the collapsed bar from the expanded one: dropdown items go
+    /// off the display, the divider gets its collapsed frame, everything else stays. Items in
+    /// `revertsOnCollapse` first go back left of the divider, like Keyboard Brightness in the
+    /// m4 revert dump (each count is one revert).
+    private func syncCollapsed() {
+        guard let before = MenuBarLayout.classify(expandedSnapshot), let divider = before.divider else { return }
+        for item in before.bar where revertsOnCollapse[item.window.windowID, default: 0] > 0 {
+            revertsOnCollapse[item.window.windowID]! -= 1
+            guard let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == item.window.windowID }) else { continue }
+            shift([(index, divider.frame.minX - 1 - item.window.frame.maxX)])
+        }
+        guard let layout = MenuBarLayout.classify(expandedSnapshot) else { return }
+        var collapsed = expandedSnapshot
+        collapsed.stackbarItems = collapsedSnapshot.stackbarItems
+        if let index = collapsed.windows.firstIndex(where: { $0.windowID == divider.windowID }),
+           let collapsedDivider = collapsedSnapshot.windows.first(where: { $0.windowID == divider.windowID }) {
+            collapsed.windows[index] = collapsedDivider
+        }
+        let dropdown = Set(layout.dropdown.map(\.window.windowID))
+        let shifts = collapsed.windows.indices.filter { dropdown.contains(collapsed.windows[$0].windowID) }.map { ($0, -5000.0) }
+        Self.shift(&collapsed, shifts)
+        for (index, _) in shifts { collapsed.windows[index].isOnScreen = false }
+        collapsedSnapshot = collapsed
+    }
+
     private func openMenu() {
         remainingMenuReads = menuReads
+    }
+
+    /// Left of or under the notch, on the display: where macOS hides items that don't fit.
+    nonisolated static func hiddenByNotch(_ frame: Rect, on screen: ScreenInfo) -> Bool {
+        guard let notch = NotchGeometry.notch(of: screen) else { return false }
+        return frame.maxX > screen.frame.minX && frame.minX < notch.maxX
     }
 
     /// A menu window of `pid` below the menu bar.

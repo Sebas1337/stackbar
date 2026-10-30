@@ -6,6 +6,29 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Settings window (icon menu → Settings…, or the gear in the panel): drag items between the Menu
+  Bar and Dropdown lists and Stackbar moves them in the menu bar for you. The cursor is hidden
+  while it does. Your choices are saved.
+- Stackbar puts items back on their side when their app restarts or new ones appear (once you
+  haven't touched mouse or keyboard for 2 seconds), and restores the collapsed menu bar at launch.
+- First-run setup that explains and asks for Accessibility and Screen Recording. Until it is
+  finished, clicking the icon opens it.
+
+### Changed
+- Items macOS hides anywhere on the display (left of or next to the notch) now count as behind the
+  notch.
+- Items behind the notch can be moved too: Stackbar first drops visible items onto them until
+  they come into view.
+- Moves are checked once the menu bar has collapsed again, and redone once when macOS put an
+  item back.
+- Moving items to the dropdown no longer unfolds the menu bar, and also works when the bar is full.
+- Bar items that don't fit because the menu bar is full show up in the panel, under "Behind the notch:
+  the menu bar is full"; Settings warns when that happens.
+- While Stackbar arranges the menu bar, your mouse and keyboard are paused and a small note under
+  the icon says so; Esc stops it.
+- Settings offers "Try Again" (right-click) for items that didn't end up where you put them.
+
 ## [0.5.0] - 2026-10-29
 
 ### Changed

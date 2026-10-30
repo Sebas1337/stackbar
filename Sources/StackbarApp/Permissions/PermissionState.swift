@@ -18,19 +18,25 @@ enum PermissionState {
 
     /// Shows the system prompt and opens System Settings → Accessibility. macOS shows the prompt
     /// only once per app, so the settings pane is what the user sees on every later request.
-    static func requestAccessibility() {
+    static func requestAccessibility(alertIfGranted: Bool = true) {
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
         logger.notice("requestAccessibility: trusted=\(trusted, privacy: .public)")
-        guard !trusted else { return showAlreadyGranted("Accessibility") }
+        guard !trusted else {
+            if alertIfGranted { showAlreadyGranted("Accessibility") }
+            return
+        }
         openSettings("Privacy_Accessibility")
     }
 
     /// Shows the system prompt (once per app) and opens System Settings → Screen Recording.
-    static func requestScreenRecording() {
+    static func requestScreenRecording(alertIfGranted: Bool = true) {
         let granted = CGRequestScreenCaptureAccess()
         logger.notice("requestScreenRecording: granted=\(granted, privacy: .public)")
-        guard !granted else { return showAlreadyGranted("Screen Recording") }
+        guard !granted else {
+            if alertIfGranted { showAlreadyGranted("Screen Recording") }
+            return
+        }
         openSettings("Privacy_ScreenCapture")
     }
 

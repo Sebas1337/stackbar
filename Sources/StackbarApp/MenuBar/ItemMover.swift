@@ -2,8 +2,8 @@ import AppKit
 import ApplicationServices
 import StackbarCore
 
-/// Synthesized ⌘-drags of items, cursor restored afterwards (Debug spikes S3/S9; M4 builds its
-/// moves on this). Needs Accessibility.
+/// Synthesized ⌘-drags of items, cursor restored afterwards (Debug spikes S3/S9; `CommandDragMover`
+/// runs M4's moves with `visible`). Needs Accessibility.
 ///
 /// - `visible`: plain events through the HID tap at on-screen positions (S3).
 /// - `windowTargeted`: events through the session tap that name the dragged window (down and
@@ -34,6 +34,8 @@ enum ItemMover {
         func send(_ type: CGEventType, _ point: CGPoint, _ windowID: UInt32) {
             guard let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: .left) else { return }
             event.flags = .maskCommand
+            // Passes `InputBlocker`, which holds back the user's own input meanwhile.
+            event.setIntegerValueField(.eventSourceUserData, value: InputBlocker.marker)
             if route.targetsWindows {
                 event.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(windowID))
                 event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(windowID))

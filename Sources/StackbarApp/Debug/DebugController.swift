@@ -7,6 +7,8 @@ final class DebugController {
     private let buildInfo: BuildInfo
     let menuBar: MenuBarController
     private var itemsWindow: ItemsWindowController?
+    /// Debug → Reset Onboarding (set by `AppDelegate`).
+    var resetOnboarding: (() -> Void)?
 
     init(buildInfo: BuildInfo, menuBar: MenuBarController) {
         self.buildInfo = buildInfo

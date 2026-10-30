@@ -18,6 +18,10 @@ public struct MenuBarLayout: Sendable, Equatable {
     public var bar: [MenuBarItem] { items.filter { $0.section == .bar } }
     public var dropdown: [MenuBarItem] { items.filter { $0.section == .dropdown } }
     public var clipped: [MenuBarItem] { items.filter(\.isClipped) }
+    /// What the dropdown panel lists: the dropdown items, plus bar items macOS hides because the
+    /// bar is full (m4-mbp16-macos26-tight.json: Weather, the leftmost bar item, hidden next to
+    /// the notch even while collapsed), which are reachable nowhere else. Left to right.
+    public var panelItems: [MenuBarItem] { items.filter { $0.section == .dropdown || $0.isClipped } }
 
     /// Collapsing is safe only with the divider left of the icon: otherwise the icon, the only
     /// way to expand again, would be pushed off-screen too.
@@ -64,6 +68,9 @@ public struct MenuBarLayout: Sendable, Equatable {
             }
         }
 
+        // In a full-screen space (or with an auto-hiding menu bar) every status window is off-screen:
+        // nothing is clipped then. Stackbar's icon is always in the bar, so it tells.
+        let menuBarShown = icon?.isOnScreen ?? true
         let items = joined.map { item in
             let window = item.window
             let isDropdown = divider.map { window.frame.midX < $0.frame.maxX } ?? false
@@ -73,7 +80,7 @@ public struct MenuBarLayout: Sendable, Equatable {
                 ax: item.axItem,
                 identity: identities[window.windowID],
                 section: isDropdown ? .dropdown : .bar,
-                isClipped: !window.isOnScreen && NotchGeometry.overlapsNotch(window.frame, on: screen),
+                isClipped: menuBarShown && !window.isOnScreen && RevealCheck.isOnDisplay(window, screen: screen),
                 isImmovable: identities[window.windowID]?.isImmovable == true
                     || item.axItem?.identifier?.plainText.map(ItemIdentity.immovableAXIdentifiers.contains) == true
             )

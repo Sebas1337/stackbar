@@ -3,7 +3,7 @@ import StackbarCore
 
 /// Stackbar's **icon** status item. A left click runs `onClick` (opens or closes the dropdown
 /// panel); a right click or ⌃-click opens the menu with the version, Show All Items / Collapse,
-/// Debug and Quit.
+/// Settings, Debug and Quit.
 @MainActor
 final class StatusIconController: NSObject {
     private let statusItem: NSStatusItem
@@ -69,6 +69,13 @@ final class StatusIconController: NSObject {
         menu.insertItem(item, at: 2)
         menu.insertItem(.separator(), at: 3)
         collapseItem = item
+    }
+
+    /// Adds "Settings…" (⌘,) below Show All Items. Call after `installCollapseItem`.
+    func installSettingsItem(_ open: @escaping () -> Void) {
+        let item = NSMenuItem(title: "Settings…", action: open)
+        item.keyEquivalent = ","
+        menu.insertItem(item, at: 3)
     }
 
     /// Adds the Debug submenu above Quit.

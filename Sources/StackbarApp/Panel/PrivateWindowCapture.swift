@@ -1,5 +1,4 @@
 import CoreGraphics
-import Darwin
 import os
 
 private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category: "capture")
@@ -9,8 +8,8 @@ private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category:
 /// i.e. items behind the notch, which ScreenCaptureKit can't (S1). Not items the collapsed divider
 /// pushed off the display (S10: no image). Unlike ScreenCaptureKit screenshots it makes macOS show
 /// "Screen Recording is in use".
-/// Loaded with `dlsym`, so Stackbar doesn't link against SkyLight: on a macOS without these
-/// symbols `isAvailable` is false and items behind the notch keep their app's icon.
+/// Loaded with `dlsym` (`SkyLight`): on a macOS without these symbols `isAvailable` is false and
+/// items behind the notch keep their app's icon.
 @MainActor
 enum PrivateWindowCapture {
     private typealias MainConnectionID = @convention(c) () -> Int32
@@ -19,13 +18,8 @@ enum PrivateWindowCapture {
     ) -> Unmanaged<CFArray>?
 
     private static let symbols: (connection: MainConnectionID, capture: CaptureWindowList)? = {
-        let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY)
-        func symbol(_ names: String...) -> UnsafeMutableRawPointer? {
-            names.lazy.compactMap { dlsym(handle, $0) }.first
-        }
-        guard handle != nil,
-              let connection = symbol("SLSMainConnectionID", "CGSMainConnectionID"),
-              let capture = symbol("SLSHWCaptureWindowList", "CGSHWCaptureWindowList")
+        guard let connection = SkyLight.symbol("SLSMainConnectionID", "CGSMainConnectionID"),
+              let capture = SkyLight.symbol("SLSHWCaptureWindowList", "CGSHWCaptureWindowList")
         else {
             logger.error("private window capture unavailable")
             return nil

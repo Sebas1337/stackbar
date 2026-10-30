@@ -33,6 +33,11 @@ final class DropdownModel {
     var isUpdating = false
     @ObservationIgnored var onSelect: (MenuBarItem) -> Void = { _ in }
     @ObservationIgnored var onUpdate: () -> Void = {}
+    @ObservationIgnored var onSettings: () -> Void = {}
+
+    var dropdownItems: [Item] { items.filter { $0.menuBarItem.section == .dropdown } }
+    /// Clipped bar items: the menu bar is full (`MenuBarLayout.panelItems`).
+    var clippedBarItems: [Item] { items.filter { $0.menuBarItem.section == .bar } }
 
     /// All images in one column, as wide as the widest item.
     var imageColumnWidth: CGFloat { items.map(\.size.width).max() ?? 0 }
@@ -44,8 +49,7 @@ final class DropdownModel {
             return "Stackbar needs Accessibility to find the dropdown items and open their menus."
         }
         if isEmpty {
-            return "No items in the dropdown yet. Right-click the Stackbar icon → Show All Items, "
-                + "then ⌘-drag items to the left of the divider (the slanted line)."
+            return "No items in the dropdown yet. Open Settings and drag items into the Dropdown list."
         }
         if !permissions.screenRecording {
             return "Grant Screen Recording to see the items' current images."
@@ -59,17 +63,16 @@ struct DropdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(model.items) { item in
-                DropdownRow(item: item, imageWidth: model.imageColumnWidth, isHovered: model.hovered == item.id) {
-                    model.onSelect(item.menuBarItem)
-                }
-                .onHover { inside in
-                    if inside {
-                        model.hovered = item.id
-                    } else if model.hovered == item.id {
-                        model.hovered = nil
-                    }
-                }
+            ForEach(model.dropdownItems) { item in row(item) }
+            if !model.clippedBarItems.isEmpty {
+                // Clipped bar items (the menu bar is full): reachable nowhere else.
+                Text("Behind the notch: the menu bar is full")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.top, model.dropdownItems.isEmpty ? 2 : 8)
+                    .padding(.bottom, 2)
+                ForEach(model.clippedBarItems) { item in row(item) }
             }
             if let footer = model.footer {
                 HStack(alignment: .firstTextBaseline) {
@@ -87,10 +90,16 @@ struct DropdownView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
             }
-            if !model.items.isEmpty {
-                Divider().padding(.vertical, 3)
-                HStack {
-                    Spacer()
+            Divider().padding(.vertical, 3)
+            HStack {
+                Button {
+                    model.onSettings()
+                } label: {
+                    Label("Settings…", systemImage: "gearshape").font(.caption)
+                }
+                .buttonStyle(.borderless)
+                Spacer()
+                if !model.items.isEmpty {
                     // Images are captured once; capturing flashes the menu bar and shows macOS's
                     // screen recording indicator, so refreshing them is the user's call.
                     Button {
@@ -102,12 +111,25 @@ struct DropdownView: View {
                     .buttonStyle(.borderless)
                     .disabled(model.isUpdating)
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 3)
             }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 3)
         }
         .padding(5)
         .frame(minWidth: DropdownModel.minimumWidth, maxWidth: DropdownModel.maximumWidth, alignment: .leading)
+    }
+
+    private func row(_ item: DropdownModel.Item) -> some View {
+        DropdownRow(item: item, imageWidth: model.imageColumnWidth, isHovered: model.hovered == item.id) {
+            model.onSelect(item.menuBarItem)
+        }
+        .onHover { inside in
+            if inside {
+                model.hovered = item.id
+            } else if model.hovered == item.id {
+                model.hovered = nil
+            }
+        }
     }
 }
 
