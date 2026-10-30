@@ -58,13 +58,14 @@ public final class DropdownRefresh {
         self.capturer = capturer
     }
 
-    /// `itemsFound` gets the dropdown items, left to right, before anything is captured, so the
+    /// The panel's items are the dropdown items plus bar items hidden because the bar is full
+    /// (`MenuBarLayout.panelItems`). `itemsFound` gets them, left to right, before anything is captured, so the
     /// panel can show them (with cached images) right away.
     public func run(force: Bool = false, itemsFound: ([MenuBarItem]) -> Void = { _ in }) async -> Report {
         guard let layout = driver.layout(), layout.icon != nil, layout.divider != nil else {
             return Report(outcome: .noLayout, isCollapsed: driver.isCollapsed)
         }
-        let dropdown = layout.dropdown
+        let dropdown = layout.panelItems
         itemsFound(dropdown)
         let ids = Set(dropdown.map(\.window.windowID))
         guard !dropdown.isEmpty else {

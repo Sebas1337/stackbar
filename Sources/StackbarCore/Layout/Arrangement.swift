@@ -87,6 +87,14 @@ public final class Arrangement {
         }.isEmpty
     }
 
+    /// What one run has done so far, per window id.
+    private struct RunState {
+        var attempts: [UInt32: Int] = [:]
+        var roomMoves: [UInt32: Int] = [:]
+        /// Moved, or given up on.
+        var done: Set<UInt32> = []
+    }
+
     public func run(config: StackbarConfig, force: Bool = false) async -> Report {
         let wasCollapsed = driver.isCollapsed
         var report = Report(outcome: .noLayout, isCollapsed: wasCollapsed)
@@ -97,10 +105,24 @@ public final class Arrangement {
         }
         isCancelled = false
         onWillMove?()
+        var state = RunState()
 
-        var attempts: [UInt32: Int] = [:]
-        var roomMoves: [UInt32: Int] = [:]
-        var done: Set<UInt32> = []
+        // Bar → dropdown first, while collapsed (S9): no flash, and it works with a full bar.
+        if wasCollapsed {
+            while let layout = driver.layout(), !isCancelled,
+                  let move = ArrangementPlan.nextCollapsedMove(in: layout, config: config, skipping: state.done),
+                  let divider = layout.divider {
+                await perform(move, dividerID: divider.windowID, state: &state, report: &report)
+            }
+            if isCancelled { report.cancelled = true }
+            guard !isCancelled, let now = driver.layout(), needsRun(now, config: config, force: force) else {
+                if let now = driver.layout() { recordBlocked(in: now, config: config, report: &report) }
+                report.outcome = .arranged
+                report.isCollapsed = driver.isCollapsed
+                return report
+            }
+        }
+
         var reverted: [MenuBarItem] = []
         /// On the wrong side once collapsed last pass: moved again, deeper.
         var again: Set<UInt32> = []
@@ -129,54 +151,12 @@ public final class Arrangement {
                     report.cancelled = true
                     break
                 }
-                guard let move = ArrangementPlan.nextMove(in: layout, config: config, skipping: done, again: again),
+                guard let move = ArrangementPlan.nextMove(in: layout, config: config, skipping: state.done, again: again),
                       let divider = layout.divider
                 else { break }
-                await mover.move(move)
-                if let clipped = move.makesRoomFor {
-                    // Making room: the clipped item has to shift right, and the dropped one has to
-                    // stay in its section.
-                    let id = clipped.window.windowID
-                    let helper = move.item.window.windowID
-                    roomMoves[id, default: 0] += 1
-                    let shifted = await driver.waitUntilSettled(
-                        [id, helper], polls: timing.movePolls, intervalMilliseconds: timing.pollIntervalMilliseconds
-                    ) { windows in
-                        (windows.first { $0.windowID == id }?.frame.minX ?? 0) > clipped.window.frame.minX + 1
-                            && Self.isInSection(move.section, helper, dividerID: divider.windowID, in: windows)
-                    }
-                    if shifted != nil {
-                        report.roomMoves += 1
-                    } else {
-                        attempts[id, default: 0] += 1
-                    }
-                    if attempts[id, default: 0] >= timing.attemptsPerItem || roomMoves[id, default: 0] >= timing.roomMovesPerItem {
-                        report.failed.append(id)
-                        done.insert(id)
-                    }
-                    continue
-                }
-                let id = move.item.window.windowID
-                attempts[id, default: 0] += 1
-                let landed = await driver.waitUntilSettled(
-                    [id], polls: timing.movePolls, intervalMilliseconds: timing.pollIntervalMilliseconds
-                ) { windows in
-                    Self.isInSection(move.section, id, dividerID: divider.windowID, in: windows)
-                }
-                if landed != nil {
-                    if !report.moved.contains(id) { report.moved.append(id) }
-                    done.insert(id)
-                } else if attempts[id, default: 0] >= timing.attemptsPerItem {
-                    report.failed.append(id)
-                    done.insert(id)
-                }
+                await perform(move, dividerID: divider.windowID, state: &state, report: &report)
             }
-
-            let stillBlocked = ArrangementPlan.misplaced(in: last, config: config).compactMap { item in
-                ArrangementPlan.blocker(of: item, in: last).map { (item, $0) }
-            }
-            report.blocked = Dictionary(stillBlocked.map { ($0.0.window.windowID, $0.1) }) { first, _ in first }
-            blocked = Set(stillBlocked.compactMap(\.0.identity))
+            recordBlocked(in: last, config: config, report: &report)
 
             // A move can look right while expanded and be undone when the bar is laid out again
             // for collapsing (m4-mbp16-macos26-revert.json: Keyboard Brightness landed right of the
@@ -197,8 +177,8 @@ public final class Arrangement {
             report.reverted = reverted.map(\.window.windowID)
             guard !reverted.isEmpty, pass < timing.passes else { break }
             for item in reverted {
-                done.remove(item.window.windowID)
-                attempts[item.window.windowID] = 0
+                state.done.remove(item.window.windowID)
+                state.attempts[item.window.windowID] = 0
             }
             again = Set(reverted.map(\.window.windowID))
         }
@@ -208,6 +188,57 @@ public final class Arrangement {
         report.outcome = .arranged
         report.isCollapsed = driver.isCollapsed
         return report
+    }
+
+    /// Drags, then waits until the move shows: the item on its new side, or (making room) the
+    /// clipped item shifted right with the dropped one still in its section. A move that doesn't
+    /// show is tried once more, then given up (`failed`).
+    private func perform(_ move: ArrangementPlan.Move, dividerID: UInt32, state: inout RunState, report: inout Report) async {
+        await mover.move(move)
+        if let clipped = move.makesRoomFor {
+            let id = clipped.window.windowID
+            let helper = move.item.window.windowID
+            state.roomMoves[id, default: 0] += 1
+            let shifted = await driver.waitUntilSettled(
+                [id, helper], polls: timing.movePolls, intervalMilliseconds: timing.pollIntervalMilliseconds
+            ) { windows in
+                (windows.first { $0.windowID == id }?.frame.minX ?? 0) > clipped.window.frame.minX + 1
+                    && Self.isInSection(move.section, helper, dividerID: dividerID, in: windows)
+            }
+            if shifted != nil {
+                report.roomMoves += 1
+            } else {
+                state.attempts[id, default: 0] += 1
+            }
+            if state.attempts[id, default: 0] >= timing.attemptsPerItem || state.roomMoves[id, default: 0] >= timing.roomMovesPerItem {
+                report.failed.append(id)
+                state.done.insert(id)
+            }
+            return
+        }
+        let id = move.item.window.windowID
+        state.attempts[id, default: 0] += 1
+        let landed = await driver.waitUntilSettled(
+            [id], polls: timing.movePolls, intervalMilliseconds: timing.pollIntervalMilliseconds
+        ) { windows in
+            Self.isInSection(move.section, id, dividerID: dividerID, in: windows)
+        }
+        if landed != nil {
+            if !report.moved.contains(id) { report.moved.append(id) }
+            state.done.insert(id)
+        } else if state.attempts[id, default: 0] >= timing.attemptsPerItem {
+            report.failed.append(id)
+            state.done.insert(id)
+        }
+    }
+
+    /// Misplaced items `layout` shows out of reach, for the report and for automatic re-applies.
+    private func recordBlocked(in layout: MenuBarLayout, config: StackbarConfig, report: inout Report) {
+        let stillBlocked = ArrangementPlan.misplaced(in: layout, config: config).compactMap { item in
+            ArrangementPlan.blocker(of: item, in: layout).map { (item, $0) }
+        }
+        report.blocked = Dictionary(stillBlocked.map { ($0.0.window.windowID, $0.1) }) { first, _ in first }
+        blocked = Set(stillBlocked.compactMap(\.0.identity))
     }
 
     /// The item's window is on `section`'s side of the divider (the window's right edge stays

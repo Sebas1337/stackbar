@@ -147,7 +147,9 @@ struct ArrangementTests {
         #expect(try #require(bar.layout()).items.first { $0.window.windowID == Self.sound }?.section == .bar)
     }
 
-    @Test func cancelStopsBeforeTheNextMoveAndCollapses() async throws {
+    /// Battery goes to the dropdown first, while collapsed; the cancel then stops before Sound would
+    /// need the bar expanded.
+    @Test func cancelStopsBeforeTheNextMove() async throws {
         let bar = try FakeMenuBar(collapsed: true)
         let config = try Self.config(bar, [Self.sound: .bar, Self.battery: .dropdown])
         let arrangement = Arrangement(driver: bar, mover: bar)
@@ -158,7 +160,7 @@ struct ArrangementTests {
         #expect(willMove == 1)
         #expect(report.cancelled)
         #expect(bar.moves.count == 1)
-        #expect(bar.collapseCalls == [false, true])
+        #expect(bar.collapseCalls.isEmpty)
         #expect(report.isCollapsed)
     }
 
@@ -169,6 +171,34 @@ struct ArrangementTests {
         arrangement.onWillMove = { willMove += 1 }
         _ = await arrangement.run(config: StackbarConfig())
         #expect(willMove == 0)
+    }
+
+    /// S9: bar → dropdown while collapsed, aimed at the divider, without expanding.
+    @Test func barToDropdownHappensWhileCollapsed() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.battery: .dropdown])
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.moved == [Self.battery])
+        #expect(bar.collapseCalls.isEmpty)
+        let divider = try #require(bar.layout()?.divider)
+        #expect(bar.roomDrops == [divider.windowID])
+        #expect(bar.moves.first?.1 == .init(x: divider.frame.minX - 4, y: divider.frame.midY))
+        #expect(try #require(bar.layout()).items.first { $0.window.windowID == Self.battery }?.section == .dropdown)
+        #expect(report.isCollapsed)
+    }
+
+    /// A full bar hides Weather, its leftmost item, even while collapsed (tight dump): to send it
+    /// to the dropdown, the visible bar item right of it is dropped onto it first.
+    @Test func hiddenBarItemGetsRoomWhileCollapsed() throws {
+        let layout = try #require(MenuBarLayout.classify(try FixtureTests.load("m4-mbp16-macos26-tight.json")))
+        let weather = try #require(layout.items.first { $0.window.windowID == 5148 })
+        var config = StackbarConfig()
+        config.assign(try #require(weather.identity), to: .dropdown, name: "Weather")
+        let move = try #require(ArrangementPlan.nextCollapsedMove(in: layout, config: config))
+        #expect(move.makesRoomFor?.window.windowID == 5148)
+        #expect(move.item.window.windowID == 29)
+        #expect(move.section == .bar)
+        #expect(move.dropWindowID == 5148)
     }
 
     @Test func expandedStaysExpanded() async throws {

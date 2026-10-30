@@ -96,7 +96,7 @@ final class SettingsWindowController {
                 caption = "Not moved yet"
             }
         } else if item.isClipped {
-            caption = "Behind the notch"
+            caption = item.section == .bar ? "Hidden: the menu bar is full. Open it from the panel" : "Behind the notch"
         }
         return SettingsModel.Row(
             id: String(id),
@@ -115,6 +115,10 @@ final class SettingsWindowController {
         }
         if layout?.divider == nil {
             return "Stackbar couldn't find its divider in the menu bar. Try again in a moment."
+        }
+        if let hidden = layout?.bar.filter(\.isClipped), !hidden.isEmpty {
+            return "The menu bar is full: \(hidden.count) item\(hidden.count == 1 ? " doesn't" : "s don't") fit and macOS hides "
+                + "\(hidden.count == 1 ? "it" : "them"). They're in the panel; move some items to the Dropdown to make room."
         }
         return nil
     }

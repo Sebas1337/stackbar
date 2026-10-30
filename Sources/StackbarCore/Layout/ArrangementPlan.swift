@@ -14,9 +14,12 @@ public enum ArrangementPlan {
         /// its section right of it, is dropped onto it instead, aimed at its window. Landing left
         /// of it shifts it right, towards the visible part of the bar.
         public var makesRoomFor: MenuBarItem?
+        /// While collapsed (S9): the divider's window, at whose off-screen left edge the item is
+        /// dropped.
+        public var dropTarget: UInt32?
 
         /// The window the drop is aimed at (the S9 window-targeted drag), nil for a plain drag.
-        public var dropWindowID: UInt32? { makesRoomFor?.window.windowID }
+        public var dropWindowID: UInt32? { makesRoomFor?.window.windowID ?? dropTarget }
     }
 
     public struct Point: Sendable, Equatable {
@@ -101,6 +104,38 @@ public enum ArrangementPlan {
         }
         let section: Section = item.section == .bar ? .dropdown : .bar
         return Move(item: item, section: section, point: dropPoint(into: section, for: item, in: layout, divider: divider))
+    }
+
+    /// The next move while collapsed, without expanding: a bar item assigned to the dropdown goes
+    /// left of the collapsed divider with the window-targeted drag of S9 (aimed at the divider's
+    /// window, dropped just left of its off-screen left edge). A full bar hides its leftmost items
+    /// even while collapsed (m4-mbp16-macos26-tight.json); those get room first, from the visible
+    /// bar items right of them. Expanding wouldn't help them: the dropdown items then take the
+    /// space and push the divider behind the notch too. Dropdown → bar needs expanding (S9).
+    public static func nextCollapsedMove(in layout: MenuBarLayout, config: StackbarConfig, skipping: Set<UInt32> = []) -> Move? {
+        guard layout.isCollapsed, let divider = layout.divider else { return nil }
+        let candidates = misplaced(in: layout, config: config)
+            .filter { $0.section == .bar && !$0.isImmovable && !skipping.contains($0.window.windowID) }
+            .sorted { distance($0, divider) < distance($1, divider) }
+        for item in candidates {
+            if item.window.isOnScreen {
+                return Move(
+                    item: item,
+                    section: .dropdown,
+                    point: Point(x: divider.frame.minX - dropOffset, y: divider.frame.midY),
+                    dropTarget: divider.windowID
+                )
+            }
+            if item.isClipped, let helper = roomMaker(for: item, in: layout) {
+                return Move(
+                    item: helper,
+                    section: helper.section,
+                    point: Point(x: item.window.frame.minX + roomDropInset, y: item.window.frame.midY),
+                    makesRoomFor: item
+                )
+            }
+        }
+        return nil
     }
 
     /// Where a dragged item lands well inside `section`: on the center of its neighbour across the

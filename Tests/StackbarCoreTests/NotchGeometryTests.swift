@@ -20,14 +20,18 @@ struct NotchGeometryTests {
     }
 }
 
-struct NotchHidingTests {
-    @Test func itemsLeftOfOrUnderTheNotchAreHiddenItemsOffTheDisplayAreNot() throws {
-        let snapshot = try FixtureTests.load("m4-mbp16-macos26-arrange.json")
-        let screen = try #require(snapshot.screens.first { $0.isMain })
-        func frame(_ x: Double) -> Rect { Rect(x: x, y: 0, width: 47, height: 33) }
-        #expect(NotchGeometry.hidesItem(at: frame(600), on: screen))
-        #expect(NotchGeometry.hidesItem(at: frame(837), on: screen))
-        #expect(!NotchGeometry.hidesItem(at: frame(1300), on: screen))
-        #expect(!NotchGeometry.hidesItem(at: frame(-3996), on: screen))
+/// Clipped = on the display but not shown, wherever: next to the notch too (m4 tight-bar dump).
+struct ClippedTests {
+    @Test func hiddenBarItemIsClippedAndListedInThePanel() throws {
+        let layout = try #require(MenuBarLayout.classify(try FixtureTests.load("m4-mbp16-macos26-tight.json")))
+        #expect(layout.isCollapsed)
+        let weather = try #require(layout.items.first { $0.window.windowID == 5148 })
+        #expect(weather.section == .bar)
+        #expect(weather.isClipped)
+        #expect(layout.clipped.map(\.window.windowID) == [5148])
+        // Collapsed dropdown items are off the display, not clipped.
+        #expect(!layout.dropdown.isEmpty)
+        #expect(layout.dropdown.allSatisfy { !$0.isClipped })
+        #expect(layout.panelItems.map(\.window.windowID) == layout.dropdown.map(\.window.windowID) + [5148])
     }
 }

@@ -16,11 +16,15 @@ All notable changes to Stackbar are documented here. The format follows
   finished, clicking the icon opens it.
 
 ### Changed
-- Items hidden left of the notch (under the app menus) now count as behind the notch.
+- Items macOS hides anywhere on the display (left of or next to the notch) now count as behind the
+  notch.
 - Items behind the notch can be moved too: Stackbar first drops visible items onto them until
   they come into view.
 - Moves are checked once the menu bar has collapsed again, and redone once when macOS put an
   item back.
+- Moving items to the dropdown no longer unfolds the menu bar, and also works when the bar is full.
+- Bar items that don't fit because the menu bar is full show up in the panel, under "Hidden: the menu
+  bar is full"; Settings warns when that happens.
 - While Stackbar arranges the menu bar, your mouse and keyboard are paused and a small note under
   the icon says so; Esc stops it.
 

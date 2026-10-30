@@ -35,6 +35,10 @@ final class DropdownModel {
     @ObservationIgnored var onUpdate: () -> Void = {}
     @ObservationIgnored var onSettings: () -> Void = {}
 
+    var dropdownItems: [Item] { items.filter { $0.menuBarItem.section == .dropdown } }
+    /// Bar items macOS hides because the bar is full (`MenuBarLayout.panelItems`).
+    var hiddenBarItems: [Item] { items.filter { $0.menuBarItem.section == .bar } }
+
     /// All images in one column, as wide as the widest item.
     var imageColumnWidth: CGFloat { items.map(\.size.width).max() ?? 0 }
 
@@ -59,17 +63,16 @@ struct DropdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(model.items) { item in
-                DropdownRow(item: item, imageWidth: model.imageColumnWidth, isHovered: model.hovered == item.id) {
-                    model.onSelect(item.menuBarItem)
-                }
-                .onHover { inside in
-                    if inside {
-                        model.hovered = item.id
-                    } else if model.hovered == item.id {
-                        model.hovered = nil
-                    }
-                }
+            ForEach(model.dropdownItems) { item in row(item) }
+            if !model.hiddenBarItems.isEmpty {
+                // Bar items a full menu bar hides: reachable nowhere else.
+                Text("Hidden: the menu bar is full")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.top, model.dropdownItems.isEmpty ? 2 : 8)
+                    .padding(.bottom, 2)
+                ForEach(model.hiddenBarItems) { item in row(item) }
             }
             if let footer = model.footer {
                 HStack(alignment: .firstTextBaseline) {
@@ -114,6 +117,19 @@ struct DropdownView: View {
         }
         .padding(5)
         .frame(minWidth: DropdownModel.minimumWidth, maxWidth: DropdownModel.maximumWidth, alignment: .leading)
+    }
+
+    private func row(_ item: DropdownModel.Item) -> some View {
+        DropdownRow(item: item, imageWidth: model.imageColumnWidth, isHovered: model.hovered == item.id) {
+            model.onSelect(item.menuBarItem)
+        }
+        .onHover { inside in
+            if inside {
+                model.hovered = item.id
+            } else if model.hovered == item.id {
+                model.hovered = nil
+            }
+        }
     }
 }
 

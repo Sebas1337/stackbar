@@ -115,9 +115,27 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
         defer { onMove?() }
         roomDrops.append(move.dropWindowID)
         guard !failingMoves.contains(id),
-              let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == id }),
-              let layout = layout(), let divider = layout.divider
+              let index = expandedSnapshot.windows.firstIndex(where: { $0.windowID == id })
         else { return }
+        if isCollapsed {
+            // S9: a bar item dropped left of the collapsed divider lands next to it.
+            // The bar items left of its old place close the gap (status items are right-aligned),
+            // the dropdown items make room.
+            guard move.dropTarget != nil, let divider = MenuBarLayout.classify(expandedSnapshot)?.divider else { return }
+            let frame = expandedSnapshot.windows[index].frame
+            var shifts = expandedSnapshot.windows.indices.compactMap { i -> (index: Int, dx: Double)? in
+                let window = expandedSnapshot.windows[i]
+                guard i != index, window.layer == WindowInfo.statusWindowLayer, window.frame.height <= 50 else { return nil }
+                if window.frame.maxX <= divider.frame.maxX { return (i, -frame.width) }
+                if window.frame.minX < frame.minX { return (i, frame.width) }
+                return nil
+            }
+            shifts.append((index, divider.frame.minX - frame.maxX))
+            shift(shifts)
+            syncCollapsed()
+            return
+        }
+        guard let layout = layout(), let divider = layout.divider else { return }
         let width = expandedSnapshot.windows[index].frame.width
         guard let target = move.makesRoomFor else {
             shift([(index, (move.point.x < divider.frame.maxX ? move.point.x - width : move.point.x) - expandedSnapshot.windows[index].frame.x)])
@@ -132,7 +150,7 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
         shifts.append((index, from - to))
         shift(shifts)
         for i in expandedSnapshot.windows.indices where expandedSnapshot.windows[i].layer == WindowInfo.statusWindowLayer {
-            expandedSnapshot.windows[i].isOnScreen = !NotchGeometry.hidesItem(at: expandedSnapshot.windows[i].frame, on: layout.screen)
+            expandedSnapshot.windows[i].isOnScreen = !Self.hiddenByNotch(expandedSnapshot.windows[i].frame, on: layout.screen)
         }
     }
 
@@ -181,6 +199,12 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
 
     private func openMenu() {
         remainingMenuReads = menuReads
+    }
+
+    /// Left of or under the notch, on the display: where macOS hides items that don't fit.
+    nonisolated static func hiddenByNotch(_ frame: Rect, on screen: ScreenInfo) -> Bool {
+        guard let notch = NotchGeometry.notch(of: screen) else { return false }
+        return frame.maxX > screen.frame.minX && frame.minX < notch.maxX
     }
 
     /// A menu window of `pid` below the menu bar.

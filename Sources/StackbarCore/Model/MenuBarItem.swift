@@ -12,8 +12,9 @@ public struct MenuBarItem: Sendable, Equatable {
     public var identity: ItemIdentity?
     /// Left of the divider: dropdown; right of it (or no divider): bar.
     public var section: Section
-    /// macOS hides it behind the notch because it doesn't fit. Independent of `section`: a
-    /// dropdown item can be clipped while expanded.
+    /// On the display but not shown: macOS hides it because it doesn't fit next to the notch (or
+    /// under the app menus). Independent of `section`: a dropdown item can be clipped while
+    /// expanded, a bar item while the bar is full.
     public var isClipped: Bool
     /// Refuses ⌘-drag (S4); Stackbar never moves it. Known by identity or by AX identifier.
     public var isImmovable: Bool
