@@ -56,8 +56,8 @@ final class ArrangementController {
         queue.enqueue { [weak self] in
             guard let self else { return }
             let started = Date()
-            // Debug → Slow Moves also restores M4's wait before checking the collapsed bar.
-            arrangement.timing.collapseSettleMilliseconds = ItemMover.usesSlowPace ? 500 : 250
+            // Debug → Slow Moves also restores M4's waits.
+            arrangement.timing = ItemMover.usesSlowPace ? .slow : Arrangement.Timing()
             let report = await arrangement.run(config: store.config, force: force)
             let took = Int(Date().timeIntervalSince(started) * 1000)
             blocker.stop()

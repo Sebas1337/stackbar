@@ -85,6 +85,11 @@ struct ArrangementTests {
         #expect(ArrangementPlan.misplaced(in: layout, config: config).count == 1)
         #expect(ArrangementPlan.nextMove(in: layout, config: config) == nil)
         #expect(ArrangementPlan.nextMove(in: layout, config: config, again: [barItem.window.windowID]) == nil)
+        #expect(ArrangementPlan.blocker(of: barItem, in: layout) == .dividerHidden)
+        // An automatic re-apply waits for a collapsed run; one the user asked for says why.
+        let arrangement = Arrangement(driver: try FakeMenuBar(collapsed: false), mover: try FakeMenuBar(collapsed: false))
+        #expect(!arrangement.needsRun(layout, config: config))
+        #expect(arrangement.needsRun(layout, config: config, force: true))
     }
 
     // MARK: Sequence
@@ -218,6 +223,30 @@ struct ArrangementTests {
         #expect(bar.moves.first?.1 == .init(x: divider.frame.minX - 4, y: divider.frame.midY))
         #expect(try #require(bar.layout()).items.first { $0.window.windowID == Self.battery }?.section == .dropdown)
         #expect(report.isCollapsed)
+    }
+
+    /// Full bar: the collapsed drag fails and the expanded divider is hidden, so the expanded pass
+    /// can't take Battery either (`dividerHidden`). It is reported failed and an automatic re-apply
+    /// doesn't expand for it again; a forced one does.
+    @Test func failedWhileCollapsedWithTheDividerHiddenIsNotRetriedAutomatically() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let dividerID = try #require(MenuBarLayout.classify(bar.expandedSnapshot)?.divider?.windowID)
+        let index = try #require(bar.expandedSnapshot.windows.firstIndex { $0.windowID == dividerID })
+        bar.expandedSnapshot.windows[index].isOnScreen = false
+        bar.failingTargetedMoves = [Self.battery]
+        let config = try Self.config(bar, [Self.battery: .dropdown])
+        let arrangement = Arrangement(driver: bar, mover: bar)
+
+        let report = await arrangement.run(config: config)
+        #expect(report.failed == [Self.battery])
+        #expect(report.blocked[Self.battery] == .dividerHidden)
+        #expect(bar.moves.count == 2) // both collapsed tries, no expanded drop behind the notch
+        #expect(report.isCollapsed)
+
+        let again = await arrangement.run(config: config)
+        #expect(again.outcome == .upToDate)
+        let forced = await arrangement.run(config: config, force: true)
+        #expect(forced.outcome == .arranged)
     }
 
     /// A full bar hides Weather, its leftmost item, even while collapsed (tight dump): to send it
