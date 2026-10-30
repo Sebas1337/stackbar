@@ -124,6 +124,29 @@ struct ArrangementTests {
         #expect(forced.outcome == .arranged)
     }
 
+    /// Right while expanded, wrong once collapsed, without any move in this run (Docker in the
+    /// m4 full-bar dump): found by the collapsed check and moved once more, deeper into the bar.
+    @Test func wrongOnlyWhileCollapsedIsMovedAgain() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.sound: .bar])
+        let index = try #require(bar.expandedSnapshot.windows.firstIndex { $0.windowID == Self.sound })
+        let dx = 1300 - bar.expandedSnapshot.windows[index].frame.x
+        let old = bar.expandedSnapshot.windows[index].frame
+        bar.expandedSnapshot.windows[index].frame.x += dx
+        for i in bar.expandedSnapshot.axItems.indices {
+            if let ax = bar.expandedSnapshot.axItems[i].frame, old.contains(x: ax.midX, y: ax.midY) {
+                bar.expandedSnapshot.axItems[i].frame?.x += dx
+            }
+        }
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.moved == [Self.sound])
+        #expect(report.reverted.isEmpty)
+        #expect(bar.moves.count == 1)
+        #expect(bar.collapseCalls == [false, true, false, true])
+        #expect(report.isCollapsed)
+        #expect(try #require(bar.layout()).items.first { $0.window.windowID == Self.sound }?.section == .bar)
+    }
+
     @Test func expandedStaysExpanded() async throws {
         let bar = try FakeMenuBar(collapsed: false)
         let config = try Self.config(bar, [Self.battery: .dropdown])

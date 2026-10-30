@@ -54,6 +54,8 @@ public final class Arrangement {
         public var roomMovesPerItem = 8
         /// Passes: the second moves again what the collapsed bar shows back on the wrong side.
         public var passes = 2
+        /// After collapsing, before checking: macOS lays the bar out again meanwhile.
+        public var collapseSettleMilliseconds = 500
 
         public init() {}
     }
@@ -91,6 +93,8 @@ public final class Arrangement {
         var roomMoves: [UInt32: Int] = [:]
         var done: Set<UInt32> = []
         var reverted: [MenuBarItem] = []
+        /// On the wrong side once collapsed last pass: moved again, deeper.
+        var again: Set<UInt32> = []
         for pass in 1...timing.passes {
             if driver.isCollapsed {
                 driver.setCollapsed(false)
@@ -112,7 +116,7 @@ public final class Arrangement {
                 if report.misplacedAfterReveal == nil {
                     report.misplacedAfterReveal = ArrangementPlan.misplaced(in: layout, config: config).map(\.window.windowID)
                 }
-                guard let move = ArrangementPlan.nextMove(in: layout, config: config, skipping: done),
+                guard let move = ArrangementPlan.nextMove(in: layout, config: config, skipping: done, again: again),
                       let divider = layout.divider
                 else { break }
                 await mover.move(move)
@@ -163,22 +167,27 @@ public final class Arrangement {
 
             // A move can look right while expanded and be undone when the bar is laid out again
             // for collapsing (m4-mbp16-macos26-revert.json: Keyboard Brightness landed right of the
-            // divider, then sat left of it once collapsed). Check the collapsed bar, and move what
-            // went back once more.
-            guard wasCollapsed, !report.moved.isEmpty else { break }
+            // divider, then sat left of it once collapsed; m4-mbp16-macos26-full.json: Docker, with
+            // a full bar). The collapsed bar is what the user sees: check it once it has settled,
+            // and move again whatever is on the wrong side there but wasn't while expanded.
+            guard wasCollapsed else { break }
             driver.setCollapsed(true)
-            let moved = Set(report.moved)
+            await driver.sleep(milliseconds: timing.collapseSettleMilliseconds)
             _ = await driver.waitUntilSettled(
-                moved, polls: timing.revealPolls, intervalMilliseconds: timing.pollIntervalMilliseconds
+                Set(last.items.map(\.window.windowID)), polls: timing.revealPolls, intervalMilliseconds: timing.pollIntervalMilliseconds
             ) { _ in true }
             guard let collapsed = driver.layout() else { break }
-            reverted = ArrangementPlan.misplaced(in: collapsed, config: config).filter { moved.contains($0.window.windowID) }
+            let misplacedExpanded = Set(ArrangementPlan.misplaced(in: last, config: config).map(\.window.windowID))
+            reverted = ArrangementPlan.misplaced(in: collapsed, config: config).filter {
+                !$0.isImmovable && !misplacedExpanded.contains($0.window.windowID)
+            }
             report.reverted = reverted.map(\.window.windowID)
             guard !reverted.isEmpty, pass < timing.passes else { break }
             for item in reverted {
                 done.remove(item.window.windowID)
                 attempts[item.window.windowID] = 0
             }
+            again = Set(reverted.map(\.window.windowID))
         }
         // Items that keep going back aren't retried automatically either.
         blocked.formUnion(reverted.compactMap(\.identity))

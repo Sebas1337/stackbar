@@ -73,8 +73,20 @@ public enum ArrangementPlan {
     /// moved and isn't in `skipping` (window ids done with), either the move itself or, while it
     /// is behind the notch, a move that makes room for it. Nil when none is left or there is no
     /// divider. One at a time, because every move reflows the bar.
-    public static func nextMove(in layout: MenuBarLayout, config: StackbarConfig, skipping: Set<UInt32> = []) -> Move? {
+    ///
+    /// `again`: window ids to move once more although they look right while expanded (they were on
+    /// the wrong side once collapsed): dropped deeper into their assigned section.
+    public static func nextMove(
+        in layout: MenuBarLayout, config: StackbarConfig, skipping: Set<UInt32> = [], again: Set<UInt32> = []
+    ) -> Move? {
         guard let divider = layout.divider else { return nil }
+        let repeated = layout.items.filter {
+            again.contains($0.window.windowID) && !skipping.contains($0.window.windowID) && $0.window.isOnScreen && !$0.isImmovable
+        }
+        for item in repeated {
+            guard let section = item.identity.flatMap(config.section(for:)) else { continue }
+            return Move(item: item, section: section, point: dropPoint(into: section, for: item, in: layout, divider: divider))
+        }
         let candidates = misplaced(in: layout, config: config)
             .filter { blocker(of: $0, in: layout) == nil && !skipping.contains($0.window.windowID) }
             .sorted { distance($0, divider) < distance($1, divider) }
