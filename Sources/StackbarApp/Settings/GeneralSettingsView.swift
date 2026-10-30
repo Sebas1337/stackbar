@@ -1,7 +1,7 @@
 import SwiftUI
 import StackbarCore
 
-/// Settings → General: Open at Login, the shortcut and auto-collapse (docs/PLAN.md M5).
+/// Settings → General: Open at Login, the shortcut, auto-collapse and updates (docs/PLAN.md M5).
 struct GeneralSettingsView: View {
     @Bindable var model: GeneralSettingsModel
 
@@ -54,6 +54,17 @@ struct GeneralSettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             } header: {
                 Text("Auto-Collapse")
+            }
+            SwiftUI.Section {
+                Toggle("Check for updates automatically", isOn: Binding(get: { model.checksForUpdates }, set: { model.onChecksForUpdates($0) }))
+                HStack {
+                    Text(model.updateStatus ?? "Once a day, on GitHub Releases.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Check Now") { model.onCheckNow() }
+                }
+            } header: {
+                Text("Updates")
             }
         }
         .formStyle(.grouped)

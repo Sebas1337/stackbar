@@ -20,7 +20,8 @@ dropdown**.
 | Toolchain | `swift-tools-version: 6.2` (needed for `.macOS(.v26)`), deployment target macOS 26. Swift 6.2 is the floor everywhere: container Swift 6.2, host Command Line Tools 26 (Swift 6.2 or newer; Xcode not required), CI `macos-26` runner with Xcode 26 (same as `release.yml`). No language features newer than Swift 6.2, because the container is the lowest toolchain |
 | Package layout | `StackbarApp` is declared in `Package.swift` only under `#if os(macOS)`. `swift build` builds every target in the package, so this is what keeps `swift build` / `swift test` green on Linux. No `#if os(...)` inside app sources |
 | Minimum OS | macOS 26 Tahoe (decided 2026-10-29: it is the only OS we can test on, so no untested code paths for 14/15) |
-| Distribution | Outside the Mac App Store (sandbox blocks the needed APIs), via GitHub Releases. Ad-hoc signed until M5. At M5 choose: Developer ID + notarization (paid account, no Gatekeeper warning) or a stable self-signed release certificate (free; users click "Open Anyway" once, permissions survive updates) |
+| Distribution | Outside the Mac App Store (sandbox blocks the needed APIs), via GitHub Releases. Ad-hoc signed until M5. Decided in M5 (user, 2026-10-30): a stable **self-signed "Stackbar Release" certificate** (`make release-cert`, GitHub secrets, [RELEASING.md](RELEASING.md) → Signing), no Developer ID: free; users click "Open Anyway" once, permissions survive updates. Releases carry a DMG (install) and a zip (updater) |
+| Updates | Decided in M5 (user, 2026-10-30): Stackbar's own updater, no Sparkle (no dependencies). Once a day (`UpdateCheck`; Settings → General can turn it off) or from Check for Updates…, it reads the GitHub Releases API and offers the newest release that has the zip and its `.sha256` (`ReleaseFeed`; pre-releases only to pre-releases). Install: download, SHA-256, unzip, the new app must satisfy the running app's designated requirement (same certificate and bundle id, which is what TCC checks), swap the bundle in place, relaunch. Not quarantined, so no Gatekeeper step. Copies run from App Translocation or a read-only folder, and development builds (other certificate), get the download page instead |
 | Versioning | SemVer, `VERSION` file is the source of truth, tags `vX.Y.Z`, `CHANGELOG.md` (Keep a Changelog). One minor per milestone until 1.0. Tag push → GitHub Release. See [RELEASING.md](RELEASING.md) |
 | License | MIT |
 | Dependencies | None to start. Adding any package needs explicit approval |
@@ -126,18 +127,20 @@ Sources/
     Model/           MenuBarItem, ItemIdentity, Section (bar | dropdown), geometry, DiagnosticsSnapshot
     Layout/          Notch-aware classification (bar / dropdown / clipped), diffing desired vs actual → ordered moves
     Persistence/     Codable config, migration, matching items across app relaunches
+    Update/          Release feed (GitHub Releases), versions, check schedule
   StackbarApp/       macOS only. Thin adapters around system APIs; no business logic.
     App/             Entry point, lifecycle, LSUIElement agent app, --dump, debug window
     MenuBar/         Icon + divider status items, item discovery (CGWindowList), watcher, moves (⌘-drag)
     Panel/           Dropdown NSPanel, icon capture, click forwarding
     Settings/        SwiftUI settings window (drag items between Bar / Dropdown)
     Permissions/     Accessibility & Screen Recording checks, onboarding
+    Update/          Update check, download, signature check, install in place
 Tests/
   StackbarCoreTests/
     Fixtures/        Real DiagnosticsSnapshot dumps from the user's Macs (never hand-edited)
 Resources/           Info.plist, entitlements, app icon
-scripts/             build-app.sh (bundle + sign), make-dev-cert.sh, changelog-notes.sh
-.github/workflows/   ci.yml (Linux test + macOS build on branch pushes; docs-only commits skip it), release.yml (tag → test, build, GitHub Release)
+scripts/             build-app.sh (bundle + sign), make-dmg.sh, make-dev-cert.sh, make-release-cert.sh, changelog-notes.sh
+.github/workflows/   ci.yml (Linux test + macOS build on branch pushes; docs-only commits skip it), release.yml (tag → test, sign, DMG + zip, GitHub Release)
 ```
 
 Rule of thumb: if it can be expressed without AppKit, it belongs in `StackbarCore` (where it's

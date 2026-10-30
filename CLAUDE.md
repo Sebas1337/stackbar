@@ -34,11 +34,15 @@ If `uname` says Darwin you're on the host Mac and can build everything.
   macOS also the app. On the host with Command Line Tools 26.3 use `make test`: plain
   `swift test` fails there ("no such module '_Testing_Foundation'", a CLT packaging bug)
 - `make app`: bundle and sign `build/Stackbar.app` (host only). Signs with `SIGN_IDENTITY`
-  (default "Stackbar Dev"), ad-hoc when that identity is missing (CI)
+  (default "Stackbar Dev"), ad-hoc when that identity is missing (CI; `REQUIRE_IDENTITY=1` fails
+  instead, as the release workflow does)
+- `make dmg`: `make app`, then `dist/Stackbar-<VERSION>.dmg` (host only)
 - `make run`: `make app`, quit a running Stackbar, launch the new build (host only)
 - `make cert`: one-time self-signed "Stackbar Dev" signing identity (host only; asks for the
   login password to trust it)
-- `make clean`: remove `build/`
+- `make release-cert`: one-time "Stackbar Release" certificate for the release workflow (host
+  only; docs/RELEASING.md → Signing). Never re-create it once releases are signed with it
+- `make clean`: remove `build/` and `dist/`
 - `build/Stackbar.app/Contents/MacOS/Stackbar --dump`: redacted diagnostics JSON (host only).
   From a shell it reports the shell's permissions; Debug → Copy Diagnostics in the running app
   is the reference. On the host you can read a copied dump with `pbpaste`

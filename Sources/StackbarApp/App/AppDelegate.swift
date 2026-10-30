@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var watcher: MenuBarWatcher?
     private var hotKeys: HotKeyCenter?
     private var general: GeneralSettingsController?
+    private var updates: UpdateController?
     private var debug: DebugController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -25,7 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let arranger = ArrangementController(menuBar: menuBar, queue: queue, store: store)
         let watcher = MenuBarWatcher()
         let hotKeys = HotKeyCenter()
-        let general = GeneralSettingsController(store: store, hotKeys: hotKeys, watcher: watcher)
+        let updates = UpdateController(store: store, buildInfo: buildInfo)
+        let general = GeneralSettingsController(store: store, hotKeys: hotKeys, watcher: watcher, updates: updates)
         let settings = SettingsWindowController(menuBar: menuBar, arranger: arranger, capturer: capturer, general: general)
         let onboarding = OnboardingWindowController { [weak settings] in settings?.show() }
         let debug = DebugController(buildInfo: buildInfo, menuBar: menuBar)
@@ -43,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dropdown?.toggleCollapsed()
         }
         menuBar.icon.installSettingsItem { [weak settings] in settings?.show() }
+        menuBar.icon.installUpdateItem { [weak updates] in updates?.check(userInitiated: true) }
         dropdown.onSettings = { [weak settings] in settings?.show() }
         menuBar.icon.installDebugMenu(debug)
 
@@ -59,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         general.applyStored()
+        updates.start()
         onboarding.onFinish = { [weak menuBar, weak store, weak arranger, weak watcher, weak general] opensAtLogin in
             store?.update { $0.onboardingCompleted = true }
             general?.setOpensAtLogin(opensAtLogin)
@@ -103,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.watcher = watcher
         self.hotKeys = hotKeys
         self.general = general
+        self.updates = updates
         self.debug = debug
         Logger(subsystem: "io.github.sebas1337.stackbar", category: "app")
             .notice("launched \(buildInfo.displayString, privacy: .public), AX trusted=\(AXIsProcessTrusted(), privacy: .public)")

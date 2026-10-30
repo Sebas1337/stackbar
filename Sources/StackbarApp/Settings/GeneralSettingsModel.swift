@@ -17,6 +17,9 @@ final class GeneralSettingsModel {
     /// Shown while recording when the pressed keys can't be a shortcut.
     var recordingHint: String?
     var autoCollapseSeconds: Int?
+    var checksForUpdates = true
+    /// The last update check, in words.
+    var updateStatus: String?
 
     @ObservationIgnored var onOpensAtLogin: (Bool) -> Void = { _ in }
     @ObservationIgnored var onOpenLoginItems: () -> Void = {}
@@ -25,6 +28,8 @@ final class GeneralSettingsModel {
     /// opening the panel.
     @ObservationIgnored var onRecording: (Bool) -> Void = { _ in }
     @ObservationIgnored var onAutoCollapse: (Int?) -> Void = { _ in }
+    @ObservationIgnored var onChecksForUpdates: (Bool) -> Void = { _ in }
+    @ObservationIgnored var onCheckNow: () -> Void = {}
     @ObservationIgnored private var monitor: Any?
 
     /// The Settings window's identifier: only key presses there are recorded.

@@ -1,7 +1,8 @@
 name: Release
 
-# Pushing a tag vX.Y.Z (matching the VERSION file) builds Stackbar.app on macOS and
-# publishes a GitHub Release with the CHANGELOG section as notes. See docs/RELEASING.md.
+# Pushing a tag vX.Y.Z (matching the VERSION file) builds Stackbar.app on macOS, signs it with the
+# "Stackbar Release" certificate and publishes a GitHub Release with the DMG (to install), the zip
+# (for the in-app updater) and the CHANGELOG section as notes. See docs/RELEASING.md.
 on:
   push:
     tags: ["v*.*.*"]
@@ -36,14 +37,50 @@ jobs:
       - name: Test
         run: swift test
 
+      # The certificate from scripts/make-release-cert.sh, in a keychain of its own, trusted for
+      # code signing so `security find-identity -v` lists it (build-app.sh signs by its hash).
+      - name: Signing identity
+        env:
+          RELEASE_CERT_P12: ${{ secrets.RELEASE_CERT_P12 }}
+          RELEASE_CERT_PASSWORD: ${{ secrets.RELEASE_CERT_PASSWORD }}
+        run: |
+          if [ -z "$RELEASE_CERT_P12" ] || [ -z "$RELEASE_CERT_PASSWORD" ]; then
+            echo "::error::Secrets RELEASE_CERT_P12 / RELEASE_CERT_PASSWORD are missing (docs/RELEASING.md, Signing)"
+            exit 1
+          fi
+          keychain="$RUNNER_TEMP/release.keychain-db"
+          keychain_password="$(openssl rand -hex 16)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          printf '%s' "$RELEASE_CERT_P12" | base64 --decode > "$RUNNER_TEMP/release.p12"
+          security import "$RUNNER_TEMP/release.p12" -k "$keychain" -P "$RELEASE_CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/release.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          security find-certificate -c "Stackbar Release" -p "$keychain" > "$RUNNER_TEMP/release.pem"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/release.pem"
+          security find-identity -v -p codesigning "$keychain"
+
       - name: Build Stackbar.app
-        run: make app ARCHS="arm64 x86_64" # universal: macOS 26 still runs on some Intel Macs
+        # Universal: macOS 26 still runs on some Intel Macs.
+        run: make app ARCHS="arm64 x86_64" SIGN_IDENTITY="Stackbar Release" REQUIRE_IDENTITY=1
+
+      - name: Check signature
+        run: |
+          codesign --verify --strict --deep build/Stackbar.app
+          codesign -dvv build/Stackbar.app 2>&1 | grep -q '^Authority=Stackbar Release$'
+          codesign -d -r- build/Stackbar.app
 
       - name: Package
         run: |
-          mkdir -p dist
+          # The script, not `make dmg`: that would rebuild the app for the runner's architecture only.
+          SIGN_IDENTITY="Stackbar Release" REQUIRE_IDENTITY=1 scripts/make-dmg.sh
           ditto -c -k --keepParent build/Stackbar.app "dist/Stackbar-$VERSION.zip"
-          shasum -a 256 "dist/Stackbar-$VERSION.zip" > "dist/Stackbar-$VERSION.zip.sha256"
+          cd dist
+          for file in "Stackbar-$VERSION.dmg" "Stackbar-$VERSION.zip"; do
+            shasum -a 256 "$file" > "$file.sha256"
+          done
 
       - name: Publish GitHub Release
         env:

@@ -1,0 +1,137 @@
+import AppKit
+import os
+import StackbarCore
+
+private let logger = Logger(subsystem: "io.github.sebas1337.stackbar", category: "update")
+
+/// Looks for updates on GitHub Releases (docs/PLAN.md M5, Updates): by itself once a day when the
+/// user allows it (`UpdateCheck`), or from Check for Updates…. Offers the newest one
+/// (`ReleaseFeed`) in an alert; `UpdateInstaller` installs it.
+@MainActor
+final class UpdateController {
+    static let releasesAPI = URL(string: "https://api.github.com/repos/Sebas1337/stackbar/releases?per_page=30")!
+    static let releasesPage = URL(string: "https://github.com/Sebas1337/stackbar/releases")!
+
+    private let store: ConfigStore
+    private let current: SemanticVersion?
+    private var timer: Timer?
+    private var isBusy = false
+    /// The last outcome in words, for Settings → General.
+    private(set) var status: String?
+    /// Runs when `status` changes.
+    var onChange: () -> Void = {}
+
+    init(store: ConfigStore, buildInfo: BuildInfo) {
+        self.store = store
+        current = SemanticVersion(buildInfo.version)
+    }
+
+    /// Checks shortly after launch and then hourly whether a daily check is due.
+    func start() {
+        guard timer == nil else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkIfDue() }
+        }
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(15))
+            self?.checkIfDue()
+        }
+    }
+
+    private func checkIfDue() {
+        guard UpdateCheck.isDue(now: Date(), lastCheck: store.config.lastUpdateCheck, enabled: store.config.checksForUpdates) else { return }
+        check(userInitiated: false)
+    }
+
+    /// Check for Updates…: also reports "up to date" and errors, and offers a skipped version again.
+    func check(userInitiated: Bool) {
+        guard !isBusy else { return }
+        guard let current else {
+            if userInitiated { inform("This build has no version number, so it can't be updated.") }
+            return
+        }
+        isBusy = true
+        setStatus("Checking…")
+        Task {
+            defer { isBusy = false }
+            do {
+                var request = URLRequest(url: Self.releasesAPI)
+                request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
+                }
+                let releases = try ReleaseFeed.decode(data)
+                store.update { $0.lastUpdateCheck = Date() }
+                let skipped = userInitiated ? nil : store.config.skippedVersion
+                guard let update = ReleaseFeed.update(in: releases, current: current, skipped: skipped) else {
+                    setStatus("Stackbar \(current) is up to date.")
+                    if userInitiated { inform("Stackbar \(current) is the newest version.") }
+                    return
+                }
+                setStatus("Stackbar \(update.version) is available.")
+                offer(update, current: current)
+            } catch {
+                logger.error("update check failed: \(error.localizedDescription, privacy: .public)")
+                setStatus("Couldn't check for updates: \(error.localizedDescription)")
+                if userInitiated { inform("Couldn't check for updates: \(error.localizedDescription)") }
+            }
+        }
+    }
+
+    private func offer(_ update: ReleaseFeed.Update, current: SemanticVersion) {
+        let alert = NSAlert()
+        alert.messageText = "Stackbar \(update.version) is available"
+        let notes = update.notes.count > 1200 ? String(update.notes.prefix(1200)) + "…" : update.notes
+        alert.informativeText = "You have \(current).\n\n\(notes)"
+        alert.addButton(withTitle: "Install and Relaunch")
+        alert.addButton(withTitle: "Later")
+        alert.addButton(withTitle: "Skip This Version")
+        NSApp.activate()
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            install(update)
+        case .alertThirdButtonReturn:
+            store.update { $0.skippedVersion = update.version.description }
+        default:
+            break
+        }
+    }
+
+    private func install(_ update: ReleaseFeed.Update) {
+        isBusy = true
+        setStatus("Installing Stackbar \(update.version)…")
+        Task {
+            defer { isBusy = false }
+            do {
+                try await UpdateInstaller.install(update)
+            } catch {
+                logger.error("update failed: \(error.localizedDescription, privacy: .public)")
+                SpikeLog.shared.add("Update to \(update.version) failed: \(error.localizedDescription)")
+                setStatus("The update failed: \(error.localizedDescription)")
+                let alert = NSAlert()
+                alert.messageText = "Couldn't install Stackbar \(update.version)"
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: "Open Download Page")
+                alert.addButton(withTitle: "Cancel")
+                NSApp.activate()
+                if alert.runModal() == .alertFirstButtonReturn {
+                    NSWorkspace.shared.open(update.page)
+                }
+            }
+        }
+    }
+
+    private func setStatus(_ text: String) {
+        status = text
+        onChange()
+    }
+
+    private func inform(_ text: String) {
+        let alert = NSAlert()
+        alert.messageText = "Check for Updates"
+        alert.informativeText = text
+        NSApp.activate()
+        alert.runModal()
+    }
+}

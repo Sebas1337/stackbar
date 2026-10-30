@@ -20,4 +20,4 @@ job (`gh run watch`, `gh run view --log-failed`) or by asking the user to run `m
 - When you change code here, finish with a numbered "Verify on Mac" checklist for the user
   and, when relevant, ask for a dump.
 
-Folders: `App/`, `MenuBar/`, `Panel/`, `Settings/`, `Permissions/`.
+Folders: `App/`, `MenuBar/`, `Panel/`, `Settings/`, `Permissions/`, `Update/`.

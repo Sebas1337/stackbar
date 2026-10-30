@@ -25,8 +25,10 @@
    git push origin vX.Y.Z
    ```
 4. `.github/workflows/release.yml` checks the tag matches `VERSION`, runs tests, builds
-   `Stackbar.app`, and publishes a GitHub Release with `Stackbar-X.Y.Z.zip` (+ SHA-256) and the
-   changelog section as notes. Check it with `gh run watch` / `gh release view vX.Y.Z`.
+   `Stackbar.app` signed with the release certificate (see Signing), and publishes a GitHub Release
+   with `Stackbar-X.Y.Z.dmg` and `Stackbar-X.Y.Z.zip` (+ SHA-256) and the changelog section as
+   notes. Check it with `gh run watch` / `gh release view vX.Y.Z`. Running copies of Stackbar
+   find it within a day (Check for Updates… at once).
 
 A tag whose version has no changelog section, or doesn't match `VERSION`, fails the workflow
 before anything is published. To redo a failed release: fix on `main`, delete the tag
@@ -35,15 +37,41 @@ has a published release; release a new patch version instead.
 
 ## Signing
 
-Until M5, release builds are signed ad-hoc only (CI has no signing identity). Consequences:
+Releases are signed with a self-signed **"Stackbar Release"** certificate (decided 2026-10-30;
+no Apple Developer account, no notarization). Because every release carries the same
+certificate, macOS keeps Stackbar's Accessibility and Screen Recording permissions across
+updates, and the in-app updater installs only releases signed with it (it checks the new app
+against the running app's designated requirement).
 
-- **Gatekeeper blocks the first launch** of a downloaded build. Since macOS 15, right-click →
-  Open no longer bypasses it: open the app once, then System Settings → Privacy & Security →
-  "Open Anyway". Or remove the quarantine flag: `xattr -dr com.apple.quarantine Stackbar.app`.
-- **Permissions reset on every update**: an ad-hoc signature changes with every build, so macOS
-  asks for Accessibility and Screen Recording again after each release.
+- **Create it once** on the Mac: `make release-cert` writes `stackbar-release.p12` and its
+  password into `~/Stackbar Release Certificate` and prints the next steps. **Back that folder up**:
+  without it, the next release is signed differently and every user has to grant the permissions
+  again (and the updater refuses it). Never re-create it while releases signed with it exist.
+- **GitHub secrets** (repo Settings → Secrets and variables → Actions): `RELEASE_CERT_P12` (the
+  `.p12`, base64) and `RELEASE_CERT_PASSWORD`. `release.yml` imports them into a temporary keychain,
+  trusts the certificate for code signing and builds with `REQUIRE_IDENTITY=1`, so a release is
+  never signed ad-hoc; it fails when the secrets are missing.
+- **Assets**: `Stackbar-X.Y.Z.dmg` (install: drag to Applications) and `Stackbar-X.Y.Z.zip` (the
+  updater downloads it), each with a `.sha256`.
 
-Local builds (`make app`) avoid the second point by signing with the self-signed "Stackbar Dev"
-identity (`make cert`). At M5 we choose between Developer ID signing + notarization (paid Apple
-Developer account, secrets in GitHub Actions, DMG) and a stable self-signed release certificate;
-see the Distribution decision in [PLAN.md](PLAN.md).
+### First launch (Gatekeeper)
+
+The certificate isn't from Apple, so Gatekeeper blocks the **first** launch of a downloaded copy.
+Since macOS 15, right-click → Open no longer bypasses it. Documented step (README):
+
+1. Open the DMG, drag Stackbar to Applications, open it from there. macOS says it can't verify
+   the app: click **Done**.
+2. System Settings → Privacy & Security → "Stackbar was blocked…" → **Open Anyway**, confirm.
+
+Updates installed by Stackbar itself aren't quarantined, so they open without that step. A DMG
+downloaded again by hand needs it again.
+
+### Testing an update
+
+The updater offers pre-releases only to pre-releases. To test the update path, tag two
+pre-releases (`1.0.0-beta.1`, `1.0.0-beta.2`), install the first from its DMG, grant the
+permissions, and let it update to the second (icon menu → Check for Updates…): no permission
+prompts may appear.
+
+Local builds (`make app`) are signed with "Stackbar Dev" (`make cert`), so they can't install
+releases (different certificate): the updater says so and offers the download page.
