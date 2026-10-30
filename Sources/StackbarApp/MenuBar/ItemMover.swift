@@ -23,8 +23,9 @@ enum ItemMover {
         var pid: pid_t?
     }
 
-    /// The waits of one drag, in milliseconds (M5: a `normal` drag took ~0.7 s,
-    /// m4-mbp16-macos26-timing.json).
+    /// The waits of one drag, in milliseconds. M5: `fast` takes ~0.33 s a drag and moved every
+    /// kind (plain, room, collapsed S9) in m5-mbp16-macos26-fast.json; `normal`, M4's, ~0.7 s
+    /// (m4-mbp16-macos26-timing.json).
     struct Pace {
         /// After moving the pointer onto the item (plain drags only).
         var hover: Int
@@ -39,14 +40,13 @@ enum ItemMover {
         static let fast = Pace(hover: 20, downHold: 80, steps: 8, stepDelay: 10, beforeUp: 40, afterUp: 30)
     }
 
-    /// Debug → Fast Moves (M5): `fast` instead of `normal`, to compare on the Mac before it
-    /// becomes the default.
-    static var usesFastPace: Bool {
-        get { UserDefaults.standard.bool(forKey: "FastMoves") }
-        set { UserDefaults.standard.set(newValue, forKey: "FastMoves") }
+    /// Debug → Slow Moves: M4's `normal` pace, to tell whether a failing move is a matter of speed.
+    static var usesSlowPace: Bool {
+        get { UserDefaults.standard.bool(forKey: "SlowMoves") }
+        set { UserDefaults.standard.set(newValue, forKey: "SlowMoves") }
     }
 
-    static var pace: Pace { usesFastPace ? .fast : .normal }
+    static var pace: Pace { usesSlowPace ? .normal : .fast }
 
     static let visible = Route(name: "hid drag", tap: .cghidEventTap)
     static let windowTargeted = Route(name: "session drag", tap: .cgSessionEventTap, targetsWindows: true)

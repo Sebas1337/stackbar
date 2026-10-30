@@ -71,6 +71,22 @@ struct ArrangementTests {
         #expect(ArrangementPlan.blocker(of: try item(Self.sound, collapsed), in: collapsed) == .offScreen)
     }
 
+    /// Expanded with a full bar the divider sits hidden next to the notch (m4 watcher dump, x = 966):
+    /// drops into the dropdown would land behind the notch (m5 fast dump: 2.1 s per miss), so bar
+    /// items wait for the collapsed path (moves into the dropdown with the divider shown:
+    /// `nextMoveDropsOnTheNeighbourAcrossTheDivider`).
+    @Test func noDropsIntoTheDropdownWhileTheExpandedDividerIsHidden() throws {
+        let layout = try #require(MenuBarLayout.classify(try FixtureTests.load("m4-mbp16-macos26-watcher.json")))
+        let divider = try #require(layout.divider)
+        #expect(!layout.isCollapsed && !divider.isOnScreen)
+        let barItem = try #require(layout.bar.first { $0.window.isOnScreen && !$0.isImmovable && $0.identity != nil })
+        var config = StackbarConfig()
+        config.assign(try #require(barItem.identity), to: .dropdown, name: "bar item")
+        #expect(ArrangementPlan.misplaced(in: layout, config: config).count == 1)
+        #expect(ArrangementPlan.nextMove(in: layout, config: config) == nil)
+        #expect(ArrangementPlan.nextMove(in: layout, config: config, again: [barItem.window.windowID]) == nil)
+    }
+
     // MARK: Sequence
 
     @Test func nothingMisplacedLeavesTheMenuBarAlone() async throws {

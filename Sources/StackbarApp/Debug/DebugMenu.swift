@@ -4,7 +4,7 @@ import AppKit
 @MainActor
 enum DebugMenu {
     private static let privateCaptureTitle = "Use Private Capture"
-    private static let fastMovesTitle = "Fast Moves"
+    private static let slowMovesTitle = "Slow Moves"
 
     static func make(debug: DebugController) -> NSMenuItem {
         let menu = NSMenu(title: "Debug")
@@ -26,12 +26,12 @@ enum DebugMenu {
         }
         privateCapture.state = ItemCapturer.usesPrivateCapture ? .on : .off
         menu.addItem(privateCapture)
-        let fastMoves = NSMenuItem(title: Self.fastMovesTitle) { [weak menu] in
-            ItemMover.usesFastPace.toggle()
-            menu?.item(withTitle: Self.fastMovesTitle)?.state = ItemMover.usesFastPace ? .on : .off
+        let slowMoves = NSMenuItem(title: Self.slowMovesTitle) { [weak menu] in
+            ItemMover.usesSlowPace.toggle()
+            menu?.item(withTitle: Self.slowMovesTitle)?.state = ItemMover.usesSlowPace ? .on : .off
         }
-        fastMoves.state = ItemMover.usesFastPace ? .on : .off
-        menu.addItem(fastMoves)
+        slowMoves.state = ItemMover.usesSlowPace ? .on : .off
+        menu.addItem(slowMoves)
 
         let item = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
         item.submenu = menu

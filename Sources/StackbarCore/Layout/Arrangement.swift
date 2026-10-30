@@ -60,8 +60,9 @@ public final class Arrangement {
         public var roomMovesPerItem = 8
         /// Passes: the second moves again what the collapsed bar shows back on the wrong side.
         public var passes = 2
-        /// After collapsing, before checking: macOS lays the bar out again meanwhile.
-        public var collapseSettleMilliseconds = 500
+        /// After collapsing, before checking: macOS lays the bar out again meanwhile (M4: 500 ms;
+        /// M5: 250 ms, then frames settled, held up in m5-mbp16-macos26-fast.json).
+        public var collapseSettleMilliseconds = 250
 
         public init() {}
     }

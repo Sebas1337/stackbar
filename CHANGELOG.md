@@ -11,6 +11,11 @@ All notable changes to Stackbar are documented here. The format follows
   shortcut that opens the dropdown from anywhere, and collapsing the menu bar again
   automatically after Show All Items.
 
+### Changed
+- Moving items is about twice as fast.
+- With a full menu bar, moving items to the dropdown no longer spends seconds on drags that can't
+  land.
+
 ## [0.6.1] - 2026-10-30
 
 ### Fixed

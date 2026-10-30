@@ -97,11 +97,14 @@ public enum ArrangementPlan {
             again.contains($0.window.windowID) && !skipping.contains($0.window.windowID) && $0.window.isOnScreen && !$0.isImmovable
         }
         for item in repeated {
-            guard let section = item.identity.flatMap(config.section(for:)) else { continue }
+            guard let section = item.identity.flatMap(config.section(for:)),
+                  section == .bar || canDropIntoDropdown(in: layout, divider: divider)
+            else { continue }
             return Move(item: item, section: section, point: dropPoint(into: section, for: item, in: layout, divider: divider))
         }
         let candidates = misplaced(in: layout, config: config)
             .filter { blocker(of: $0, in: layout) == nil && !skipping.contains($0.window.windowID) }
+            .filter { $0.section == .dropdown || canDropIntoDropdown(in: layout, divider: divider) }
             .sorted { distance($0, divider) < distance($1, divider) }
         guard let item = candidates.first else { return nil }
         if item.isClipped, let helper = roomMaker(for: item, in: layout) {
@@ -114,6 +117,15 @@ public enum ArrangementPlan {
         }
         let section: Section = item.section == .bar ? .dropdown : .bar
         return Move(item: item, section: section, point: dropPoint(into: section, for: item, in: layout, divider: divider))
+    }
+
+    /// Expanded with the divider itself hidden next to the notch (a full bar), a drop into the
+    /// dropdown lands behind the notch and misses: m5-mbp16-macos26-fast.json, windows 92 and 4777
+    /// (Battery) dragged to x = 942 and x = 951 twice per run, 2.1 s each, nothing moved. Those
+    /// moves are left to the collapsed path (S9), which works with a full bar; 92 was even on its
+    /// side there already, misplaced only in the expanded read.
+    static func canDropIntoDropdown(in layout: MenuBarLayout, divider: WindowInfo) -> Bool {
+        layout.isCollapsed || divider.isOnScreen
     }
 
     /// The next move while collapsed, without expanding: a bar item assigned to the dropdown goes
