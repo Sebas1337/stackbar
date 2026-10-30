@@ -68,7 +68,8 @@ public final class Arrangement {
 
     private let driver: any MenuBarDriver
     private let mover: any ItemMoving
-    private let timing: Timing
+    /// Adjustable between runs (Debug → Fast Moves, M5).
+    public var timing: Timing
     /// Identities found blocked by the last run.
     private var blocked: Set<ItemIdentity> = []
     private var isCancelled = false

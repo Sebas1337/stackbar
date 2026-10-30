@@ -16,17 +16,44 @@ enum ItemMover {
     struct Route {
         var name: String
         var tap: CGEventTapLocation
-        var dragSteps = 20
+        /// Nil: the `Pace`'s steps; 0: a bare mouse down and up.
+        var dragSteps: Int?
         var targetsWindows = false
         /// Post to this process instead of a tap.
         var pid: pid_t?
     }
+
+    /// The waits of one drag, in milliseconds (M5: a `normal` drag took ~0.7 s,
+    /// m4-mbp16-macos26-timing.json).
+    struct Pace {
+        /// After moving the pointer onto the item (plain drags only).
+        var hover: Int
+        /// Between mouse down and the first drag event: macOS starts the ⌘-drag meanwhile.
+        var downHold: Int
+        var steps: Int
+        var stepDelay: Int
+        var beforeUp: Int
+        var afterUp: Int
+
+        static let normal = Pace(hover: 50, downHold: 150, steps: 20, stepDelay: 15, beforeUp: 100, afterUp: 50)
+        static let fast = Pace(hover: 20, downHold: 80, steps: 8, stepDelay: 10, beforeUp: 40, afterUp: 30)
+    }
+
+    /// Debug → Fast Moves (M5): `fast` instead of `normal`, to compare on the Mac before it
+    /// becomes the default.
+    static var usesFastPace: Bool {
+        get { UserDefaults.standard.bool(forKey: "FastMoves") }
+        set { UserDefaults.standard.set(newValue, forKey: "FastMoves") }
+    }
+
+    static var pace: Pace { usesFastPace ? .fast : .normal }
 
     static let visible = Route(name: "hid drag", tap: .cghidEventTap)
     static let windowTargeted = Route(name: "session drag", tap: .cgSessionEventTap, targetsWindows: true)
 
     /// ⌘-drags `window` from its center to `target` (global, top-left origin) along `route`.
     static func drag(_ window: WindowInfo, to target: CGPoint, targetWindowID: UInt32, route: Route) async {
+        let pace = pace
         let source = CGEventSource(stateID: .combinedSessionState)
         let savedCursor = CGEvent(source: nil)?.location ?? .zero
         let start = CGPoint(x: window.frame.midX, y: window.frame.midY)
@@ -50,20 +77,21 @@ enum ItemMover {
 
         if !route.targetsWindows {
             send(.mouseMoved, start, window.windowID)
-            try? await Task.sleep(for: .milliseconds(50))
+            try? await Task.sleep(for: .milliseconds(pace.hover))
         }
         send(.leftMouseDown, start, window.windowID)
-        try? await Task.sleep(for: .milliseconds(150))
-        if route.dragSteps > 0 {
-            for step in 1...route.dragSteps {
-                let t = CGFloat(step) / CGFloat(route.dragSteps)
+        try? await Task.sleep(for: .milliseconds(pace.downHold))
+        let steps = route.dragSteps ?? pace.steps
+        if steps > 0 {
+            for step in 1...steps {
+                let t = CGFloat(step) / CGFloat(steps)
                 send(.leftMouseDragged, CGPoint(x: start.x + (target.x - start.x) * t, y: start.y + (target.y - start.y) * t), window.windowID)
-                try? await Task.sleep(for: .milliseconds(15))
+                try? await Task.sleep(for: .milliseconds(pace.stepDelay))
             }
-            try? await Task.sleep(for: .milliseconds(100))
+            try? await Task.sleep(for: .milliseconds(pace.beforeUp))
         }
         send(.leftMouseUp, target, targetWindowID)
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(pace.afterUp))
         CGWarpMouseCursorPosition(savedCursor)
     }
 }
