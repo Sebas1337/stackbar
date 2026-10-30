@@ -27,7 +27,7 @@ final class DeadZoneSpike {
     }
 
     func run() async {
-        log("S12 start: collapsed=\(menuBar.isCollapsed), fast moves=\(ItemMover.usesFastPace)")
+        log("S12 start: collapsed=\(menuBar.isCollapsed), slow moves=\(ItemMover.usesSlowPace)")
         guard AXIsProcessTrusted() else {
             log("S12: no Accessibility permission, events would be dropped")
             return

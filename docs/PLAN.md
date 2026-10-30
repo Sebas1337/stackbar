@@ -285,7 +285,12 @@ only the clicked item appearing in the bar instead of every dropdown item.
 
 **M5 — Polish & release (v1.0.0)**
 - Launch at login (`SMAppService`), global hotkey, optional auto-collapse timer
-- Full-bar edge case from M4: dropdown → bar for items in the dead zone next to the notch
+- Full-bar edge case from M4: dropdown → bar for items in the dead zone next to the notch.
+  Spike S12 (Debug → S12 Dead Zone (Moves Items), `DeadZoneSpike`) tries, in order: dragging
+  the divider onto the item, a blind window-targeted drag of the item, and parking the dropdown
+  items right of it in the bar. Not reproduced on 2026-10-30: with the faster moves, room moves
+  brought every clipped item into view (`m5-mbp16-macos26-fast.json`), so the spike stays in the
+  Debug menu for when it shows up again; until then Settings keeps saying there is no room
 - Faster arranging: a drag takes about 0.7 s and a run about 2 s on top (expand, settle, collapse
   check; `m4-mbp16-macos26-timing.json`). Try fewer drag steps and shorter waits. Done: ~0.33 s a drag,
   ~0.8 s for a collapsed move (`m5-mbp16-macos26-fast.json`)
