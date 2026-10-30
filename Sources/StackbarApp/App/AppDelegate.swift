@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Until onboarding has finished, the icon opens it instead of the panel and collapsing is
         // refused (docs/PLAN.md, Decisions → First run).
         menuBar.isSetUp = store.config.onboardingCompleted
-        let openDropdown = { [weak menuBar, weak dropdown, weak onboarding] in
+        let openDropdown: () -> Void = { [weak menuBar, weak dropdown, weak onboarding] in
             if menuBar?.isSetUp == true { dropdown?.toggle() } else { onboarding?.show() }
         }
         menuBar.icon.onClick = openDropdown
