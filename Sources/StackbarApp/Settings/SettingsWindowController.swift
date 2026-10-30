@@ -26,6 +26,7 @@ final class SettingsWindowController {
             defer: false
         )
         window.title = "Stackbar Settings"
+        window.identifier = GeneralSettingsModel.windowIdentifier
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: SettingsTabsView(items: model, general: general.model))
         window.center()

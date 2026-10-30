@@ -41,7 +41,7 @@ struct AutoCollapseTests {
     @Test func waitsForTheUserAndForStackbar() {
         var policy = AutoCollapse(delaySeconds: 10)
         _ = Self.tick(&policy, 0)
-        let active = Self.tick(&policy, 20, idle: 0.5)
+        let active = Self.tick(&policy, 20, idle: 4)
         let busy = Self.tick(&policy, 22, busy: true)
         let idle = Self.tick(&policy, 24)
         #expect(!active && !busy && idle)

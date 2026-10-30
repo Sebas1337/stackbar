@@ -27,25 +27,39 @@ final class GeneralSettingsModel {
     @ObservationIgnored var onAutoCollapse: (Int?) -> Void = { _ in }
     @ObservationIgnored private var monitor: Any?
 
-    /// Records the next key press with ⌃, ⌥ or ⌘ in Stackbar's windows. Esc cancels, Delete clears.
+    /// The Settings window's identifier: only key presses there are recorded.
+    static let windowIdentifier = NSUserInterfaceItemIdentifier("StackbarSettings")
+
+    /// Records the next key press with ⌃, ⌥ or ⌘ in the Settings window. Esc cancels, Delete clears.
     func startRecording() {
         guard monitor == nil else { return }
         isRecording = true
         recordingHint = nil
         onRecording(true)
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            MainActor.assumeIsolated { self?.record(event) }
-            return nil
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard event.window?.identifier == Self.windowIdentifier else { return false }
+                self?.record(event)
+                return true
+            }
+            return handled ? nil : event
         }
     }
 
+    /// Ends recording; the earlier shortcut applies again.
     func stopRecording() {
+        guard endRecording() else { return }
+        onRecording(false)
+    }
+
+    /// False when it wasn't recording.
+    private func endRecording() -> Bool {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
-        guard isRecording else { return }
+        guard isRecording else { return false }
         isRecording = false
         recordingHint = nil
-        onRecording(false)
+        return true
     }
 
     private func record(_ event: NSEvent) {
@@ -53,7 +67,7 @@ final class GeneralSettingsModel {
         case kVK_Escape:
             stopRecording()
         case kVK_Delete, kVK_ForwardDelete:
-            stopRecording()
+            _ = endRecording()
             onHotKey(nil)
         default:
             let candidate = HotKey(keyCode: UInt32(event.keyCode), modifiers: Self.modifiers(event.modifierFlags), key: Self.keyName(event))
@@ -61,7 +75,7 @@ final class GeneralSettingsModel {
                 recordingHint = "Use ⌃, ⌥ or ⌘ with a key."
                 return
             }
-            stopRecording()
+            _ = endRecording()
             onHotKey(candidate)
         }
     }

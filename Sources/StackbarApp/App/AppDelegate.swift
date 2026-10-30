@@ -70,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             store?.update { $0.onboardingCompleted = false }
             menuBar?.setCollapsed(false)
             menuBar?.isSetUp = false
-            onboarding?.show()
+            onboarding?.show(opensAtLogin: LoginItem.isEnabled || LoginItem.needsApproval)
         }
 
         if menuBar.isSetUp {

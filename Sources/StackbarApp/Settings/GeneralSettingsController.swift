@@ -20,7 +20,11 @@ final class GeneralSettingsController {
         model.onHotKey = { [weak self] in self?.setHotKey($0) }
         model.onRecording = { [weak self] recording in
             guard let self else { return }
-            hotKeys.register(recording ? nil : store.config.hotKey)
+            if recording {
+                hotKeys.register(nil)
+            } else {
+                model.hotKeyRefused = !hotKeys.register(store.config.hotKey)
+            }
         }
         model.onAutoCollapse = { [weak self] in self?.setAutoCollapse($0) }
     }
@@ -45,6 +49,8 @@ final class GeneralSettingsController {
     }
 
     func setOpensAtLogin(_ enabled: Bool) {
+        // Unregistering what was never registered throws: only change what differs.
+        guard enabled != (LoginItem.isEnabled || LoginItem.needsApproval) else { return reload() }
         do {
             try LoginItem.set(enabled)
             model.loginError = nil

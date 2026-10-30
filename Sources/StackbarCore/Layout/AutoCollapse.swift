@@ -1,11 +1,15 @@
 import Foundation
 
 /// Collapses the menu bar again after it has been expanded for a while (docs/PLAN.md M5), e.g.
-/// after Show All Items. Fed by the watcher's ticks; waits like a re-apply for the user to be idle
-/// (not in the middle of their own ⌘-drag) and for nothing else to be busy.
+/// after Show All Items or a launch that restored an expanded bar. Fed by the watcher's ticks;
+/// waits for the user to leave mouse and keyboard alone for `idleSeconds`, longer than a re-apply
+/// does, so a pause between their own ⌘-drags across the divider doesn't collapse the bar under
+/// them, and for nothing else to be busy.
 public struct AutoCollapse: Sendable {
     /// The choices offered in Settings, in seconds.
     public static let choices = [10, 30, 60, 300]
+    /// Idle time the user needs before the bar collapses.
+    public static let idleSeconds = 5.0
 
     /// Nil: never collapse automatically.
     public var delaySeconds: Int?
@@ -25,7 +29,7 @@ public struct AutoCollapse: Sendable {
             expandedSince = now
             return false
         }
-        guard now.timeIntervalSince(since) >= Double(delaySeconds), !isBusy, idleSeconds >= MenuBarWatch.idleSeconds else { return false }
+        guard now.timeIntervalSince(since) >= Double(delaySeconds), !isBusy, idleSeconds >= Self.idleSeconds else { return false }
         expandedSince = nil
         return true
     }

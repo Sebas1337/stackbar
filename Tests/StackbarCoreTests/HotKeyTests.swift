@@ -3,9 +3,9 @@ import Testing
 
 struct HotKeyTests {
     @Test func displaysModifiersInMacOSOrder() {
-        let key = HotKey(keyCode: 1, modifiers: [.command, .shift, .option, .control], key: "s")
+        let key = HotKey(keyCode: 1, modifiers: [.command, .shift, .option, .control], key: "S")
         #expect(key.displayString == "⌃⌥⇧⌘S")
-        #expect(HotKey(keyCode: 49, modifiers: [.option], key: "Space").displayString == "⌥SPACE")
+        #expect(HotKey(keyCode: 49, modifiers: [.option], key: "Space").displayString == "⌥Space")
     }
 
     @Test func needsControlOptionOrCommand() {

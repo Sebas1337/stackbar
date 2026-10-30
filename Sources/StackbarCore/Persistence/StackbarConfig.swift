@@ -35,7 +35,8 @@ public struct StackbarConfig: Codable, Sendable, Equatable {
 
     public init() {}
 
-    /// Keys added after 0.6 (M5) may be missing: they get their defaults, so older files load.
+    /// Keys added after 0.6 (M5) may be missing: they get their defaults, so older files load. A new
+    /// key must be read here too, or it never loads back (`roundTripsThroughTheFile` sets them all).
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = StackbarConfig()

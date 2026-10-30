@@ -19,8 +19,8 @@ public struct HotKey: Codable, Sendable, Equatable {
     /// The virtual key code (layout independent).
     public var keyCode: UInt32
     public var modifiers: Modifiers
-    /// What the key showed when it was recorded ("S", "F5", "Space"), so showing it later needs no
-    /// keyboard layout.
+    /// What the key showed when it was recorded ("S", "F5", "Space"; letters as capitals), so
+    /// showing it later needs no keyboard layout.
     public var key: String
 
     public init(keyCode: UInt32, modifiers: Modifiers, key: String) {
@@ -37,6 +37,6 @@ public struct HotKey: Codable, Sendable, Equatable {
     /// "⌃⌥⌘S", modifiers in the order macOS shows them.
     public var displayString: String {
         let symbols: [(Modifiers, String)] = [(.control, "⌃"), (.option, "⌥"), (.shift, "⇧"), (.command, "⌘")]
-        return symbols.filter { modifiers.contains($0.0) }.map(\.1).joined() + key.uppercased()
+        return symbols.filter { modifiers.contains($0.0) }.map(\.1).joined() + key
     }
 }

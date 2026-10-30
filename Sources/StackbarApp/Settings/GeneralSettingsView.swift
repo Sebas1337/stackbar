@@ -50,13 +50,15 @@ struct GeneralSettingsView: View {
                         Text(Self.describe(seconds)).tag(Int?.some(seconds))
                     }
                 }
-                Text("After Show All Items, once you haven't used mouse or keyboard for a moment.")
+                Text("Once the menu bar has been expanded this long (Show All Items) and you haven't used mouse or keyboard for 5 seconds.")
                     .font(.caption).foregroundStyle(.secondary)
             } header: {
                 Text("Auto-Collapse")
             }
         }
         .formStyle(.grouped)
+        // Switching to the Items tab ends a recording.
+        .onDisappear { model.stopRecording() }
         .frame(minWidth: 560, minHeight: 380)
     }
 

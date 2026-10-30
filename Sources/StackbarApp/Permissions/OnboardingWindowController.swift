@@ -36,9 +36,11 @@ final class OnboardingWindowController {
         }
     }
 
-    func show() {
+    /// `opensAtLogin` seeds the last step's checkbox (Reset Onboarding: the current state); nil
+    /// keeps it (checked on a fresh install).
+    func show(opensAtLogin: Bool? = nil) {
         model.step = .welcome
-        model.opensAtLogin = true
+        if let opensAtLogin { model.opensAtLogin = opensAtLogin }
         model.permissions = PermissionState.current
         if timer == nil {
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in

@@ -41,9 +41,12 @@ final class MenuBarWatcher {
         let windows = WindowListReader.windows(minimumLayer: WindowInfo.statusWindowLayer)
         let idle = Self.idleSeconds()
         let busy = isBusy()
-        if watch.tick(windows: windows, idleSeconds: idle, isBusy: busy) {
+        let due = watch.tick(windows: windows, idleSeconds: idle, isBusy: busy)
+        // Ticked every time, so it sees every collapse; a re-apply goes first.
+        let collapse = autoCollapse.tick(now: Date(), isCollapsed: isCollapsed(), idleSeconds: idle, isBusy: busy)
+        if due {
             onDue()
-        } else if autoCollapse.tick(now: Date(), isCollapsed: isCollapsed(), idleSeconds: idle, isBusy: busy) {
+        } else if collapse {
             onAutoCollapse()
         }
     }
