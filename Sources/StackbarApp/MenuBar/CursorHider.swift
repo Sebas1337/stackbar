@@ -35,6 +35,17 @@ enum CursorHider {
 
     static var isAvailable: Bool { isEnabled }
 
+    /// Hides the cursor until the matching `end()`, for a whole arrangement: between drags it would
+    /// otherwise show up for the seconds Stackbar waits for the bar to settle. Hide and show are
+    /// counted by the window server, so `hidden` inside still balances.
+    static func begin() {
+        if isEnabled { CGDisplayHideCursor(CGMainDisplayID()) }
+    }
+
+    static func end() {
+        if isEnabled { CGDisplayShowCursor(CGMainDisplayID()) }
+    }
+
     /// Runs `body` with the cursor hidden (when possible) and shows it again afterwards.
     static func hidden<T>(_ body: () async -> T) async -> T {
         let hide = isEnabled

@@ -1,3 +1,4 @@
+import Foundation
 import os
 import StackbarCore
 
@@ -14,6 +15,8 @@ final class ArrangementController {
     /// Holds back the user's mouse and keyboard while items are dragged; Esc cancels.
     private let blocker = InputBlocker()
     private let hud = ArrangingHUD()
+    /// The cursor stays hidden for a whole run that moves items, not only during each drag.
+    private var cursorHidden = false
 
     /// The last run's report, for Settings.
     private(set) var lastReport: Arrangement.Report?
@@ -31,6 +34,8 @@ final class ArrangementController {
         arrangement.onWillMove = { [weak self] in
             guard let self else { return }
             blocker.start()
+            CursorHider.begin()
+            cursorHidden = true
             hud.show(under: menuBar.icon.frame)
         }
         blocker.onEscape = { [weak self] in self?.arrangement.cancel() }
@@ -50,14 +55,20 @@ final class ArrangementController {
         onChange?()
         queue.enqueue { [weak self] in
             guard let self else { return }
+            let started = Date()
             let report = await arrangement.run(config: store.config, force: force)
+            let took = Int(Date().timeIntervalSince(started) * 1000)
             blocker.stop()
+            if cursorHidden {
+                CursorHider.end()
+                cursorHidden = false
+            }
             hud.hide()
             lastReport = report
             pending -= 1
             logger.notice("\(report.description, privacy: .public)")
             for step in report.steps { SpikeLog.shared.add("  \(step)") }
-            SpikeLog.shared.add(report.description)
+            SpikeLog.shared.add(report.description + (report.outcome == .upToDate ? "" : ", took \(took) ms"))
             onChange?()
         }
     }

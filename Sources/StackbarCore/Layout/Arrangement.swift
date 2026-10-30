@@ -217,6 +217,7 @@ public final class Arrangement {
     /// clipped item shifted right with the dropped one still in its section. A move that doesn't
     /// show is tried once more, then given up (`failed`).
     private func perform(_ move: ArrangementPlan.Move, dividerID: UInt32, state: inout RunState, report: inout Report) async {
+        let started = Date()
         let windows = driver.windows(minimumLayer: WindowInfo.statusWindowLayer)
         var step = "drag \(Self.describe(move.item.window.windowID, in: windows)) to x=\(Int(move.point.x))"
             + (move.dropWindowID.map { " aimed at \($0)" } ?? "") + ", divider \(Self.describe(dividerID, in: windows))"
@@ -224,7 +225,7 @@ public final class Arrangement {
         defer {
             let after = driver.windows(minimumLayer: WindowInfo.statusWindowLayer)
             let watched = move.makesRoomFor?.window.windowID ?? move.item.window.windowID
-            report.steps.append(step + " -> \(Self.describe(watched, in: after))")
+            report.steps.append(step + " -> \(Self.describe(watched, in: after)) (\(Int(Date().timeIntervalSince(started) * 1000)) ms)")
         }
         await mover.move(move)
         if let clipped = move.makesRoomFor {
