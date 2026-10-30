@@ -285,6 +285,8 @@ only the clicked item appearing in the bar instead of every dropdown item.
 **M5 — Polish & release (v1.0.0)**
 - Launch at login (`SMAppService`), global hotkey, optional auto-collapse timer
 - Full-bar edge case from M4: dropdown → bar for items in the dead zone next to the notch
+- Faster arranging: a drag takes about 0.7 s and a run about 2 s on top (expand, settle, collapse
+  check; `m4-mbp16-macos26-timing.json`). Try fewer drag steps and shorter waits
 - Release signing per the Distribution decision (Developer ID + notarization, or a stable
   self-signed certificate), DMG, GitHub Release workflow; update mechanism (TBD)
 - Done when: the DMG from GitHub Releases opens on a clean Mac (without Gatekeeper warnings if

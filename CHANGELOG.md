@@ -6,6 +6,10 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- The cursor stays hidden for the whole time Stackbar arranges the menu bar, not only while it
+  drags.
+
 ## [0.6.0] - 2026-10-30
 
 ### Added
