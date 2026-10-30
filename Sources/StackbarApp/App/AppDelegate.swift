@@ -62,6 +62,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         general.applyStored()
+        updates.isBusy = { [weak menuBar, weak arranger, weak queue, weak dropdown] in
+            menuBar?.isSetUp != true || arranger?.isRunning == true || queue?.isRunning == true || dropdown?.isOpen == true
+        }
         updates.start()
         onboarding.onFinish = { [weak menuBar, weak store, weak arranger, weak watcher, weak general] opensAtLogin in
             store?.update { $0.onboardingCompleted = true }

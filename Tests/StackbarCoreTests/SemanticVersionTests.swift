@@ -11,7 +11,7 @@ struct SemanticVersionTests {
         #expect(Self.version("v1.0.0-beta.2").description == "1.0.0-beta.2")
         #expect(Self.version("1.0.0+42").description == "1.0.0")
         #expect(Self.version("1.0.0-rc.1").isPrerelease)
-        for bad in ["1.0", "1.0.0.0", "a.b.c", "1.0.0-", "1.0.0-beta..1", "", "-1.0.0"] {
+        for bad in ["1.0", "1.0.0.0", "a.b.c", "1.0.0-", "1.0.0-beta..1", "", "-1.0.0", "v+1.0.0", "01.0.0", "1.0.0-beta.01", "1.0.0-bèta"] {
             #expect(SemanticVersion(bad) == nil, "\(bad)")
         }
     }

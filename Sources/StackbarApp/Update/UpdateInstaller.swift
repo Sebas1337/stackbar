@@ -17,6 +17,7 @@ enum UpdateInstaller {
         case archive
         case signature(OSStatus)
         case wrongApp(String)
+        case relaunch(String)
 
         var errorDescription: String? {
             switch self {
@@ -28,6 +29,7 @@ enum UpdateInstaller {
                 "The new version isn't signed like this one (\(status)). Development builds can't install releases; "
                     + "download it from GitHub instead."
             case .wrongApp(let reason): reason
+            case .relaunch(let reason): "Stackbar was updated but couldn't restart itself (\(reason)). Quit it and open it again."
             }
         }
     }
@@ -38,8 +40,10 @@ enum UpdateInstaller {
         if bundle.path.contains("/AppTranslocation/") {
             return "macOS runs this copy from a temporary location. Move Stackbar to Applications and open it from there."
         }
-        if !FileManager.default.isWritableFile(atPath: bundle.deletingLastPathComponent().path) {
-            return "Stackbar can't write to \(bundle.deletingLastPathComponent().path)."
+        // The swap removes the old bundle from its folder and replaces its contents.
+        for path in [bundle.deletingLastPathComponent().path, bundle.path, bundle.appendingPathComponent("Contents").path]
+        where !FileManager.default.isWritableFile(atPath: path) {
+            return "Stackbar can't write to \(path). Download the update instead."
         }
         return nil
     }
@@ -51,24 +55,31 @@ enum UpdateInstaller {
         let folder = try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: bundle, create: true)
         defer { try? FileManager.default.removeItem(at: folder) }
 
-        let archive = folder.appendingPathComponent("Stackbar-\(update.version).zip")
         let expected = try await download(update.checksum).flatMap { ReleaseFeed.digest(fromChecksumFile: String(decoding: $0, as: UTF8.self)) }
         guard let expected else { throw Failure.checksum }
         guard let data = try await download(update.archive) else { throw Failure.download("empty response") }
-        guard SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == expected else { throw Failure.checksum }
-        try data.write(to: archive)
+        // Hashing, unzipping and checking the signature of a universal app take a moment: not on
+        // the main thread, where the menu bar icon and the panel live.
+        let app = try await Task.detached { try unpack(data, expected: expected, into: folder) }.value
+        try checkBundle(app, version: update.version)
 
+        _ = try FileManager.default.replaceItemAt(bundle, withItemAt: app)
+        SpikeLog.shared.add("Update: installed \(update.version), relaunching")
+        try relaunch(bundle)
+    }
+
+    /// Checks the zip against its checksum, unzips it into `folder` and checks the app's signature.
+    private nonisolated static func unpack(_ data: Data, expected: String, into folder: URL) throws -> URL {
+        guard SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == expected else { throw Failure.checksum }
+        let archive = folder.appendingPathComponent("Stackbar.zip")
+        try data.write(to: archive)
         let extracted = folder.appendingPathComponent("extracted", isDirectory: true)
         try run("/usr/bin/ditto", ["-x", "-k", archive.path, extracted.path])
         let app = extracted.appendingPathComponent("Stackbar.app")
         guard FileManager.default.fileExists(atPath: app.path) else { throw Failure.archive }
         _ = try? run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", app.path])
         try checkSignature(of: app)
-        try checkBundle(app, version: update.version)
-
-        _ = try FileManager.default.replaceItemAt(bundle, withItemAt: app)
-        SpikeLog.shared.add("Update: installed \(update.version), relaunching")
-        relaunch(bundle)
+        return app
     }
 
     private static func download(_ url: URL) async throws -> Data? {
@@ -87,7 +98,7 @@ enum UpdateInstaller {
 
     /// The new app must satisfy the running app's designated requirement: same bundle id, same
     /// signing certificate. That is what TCC checks, so the permissions carry over.
-    private static func checkSignature(of app: URL) throws {
+    private nonisolated static func checkSignature(of app: URL) throws {
         var running: SecCode?
         var runningStatic: SecStaticCode?
         var requirement: SecRequirement?
@@ -113,7 +124,7 @@ enum UpdateInstaller {
         }
     }
 
-    private static func run(_ tool: String, _ arguments: [String]) throws {
+    private nonisolated static func run(_ tool: String, _ arguments: [String]) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = arguments
@@ -122,15 +133,19 @@ enum UpdateInstaller {
         guard process.terminationStatus == 0 else { throw Failure.archive }
     }
 
-    /// Opens the new version once this process has exited.
-    private static func relaunch(_ bundle: URL) {
+    /// Opens the new version once this process has exited. Doesn't quit when that can't be arranged.
+    private static func relaunch(_ bundle: URL) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = [
             "-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$0\"",
             bundle.path, String(ProcessInfo.processInfo.processIdentifier),
         ]
-        try? process.run()
+        do {
+            try process.run()
+        } catch {
+            throw Failure.relaunch(error.localizedDescription)
+        }
         NSApp.terminate(nil)
     }
 }

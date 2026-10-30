@@ -4,6 +4,7 @@
 # Run `make app` first (`make dmg` does).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib/signing.sh
 
 identity="${SIGN_IDENTITY:-Stackbar Dev}"
 version="$(tr -d '[:space:]' < VERSION)"
@@ -21,12 +22,9 @@ mkdir -p dist
 rm -f "$dmg"
 hdiutil create -quiet -volname "Stackbar $version" -srcfolder "$stage" -fs HFS+ -format UDZO "$dmg"
 
-hash="$(security find-identity -v -p codesigning | awk -v name="\"$identity\"" 'index($0, name) { print $2; exit }')"
+hash="$(require_signing_hash "$identity")"
 if [ -n "$hash" ]; then
   codesign --force --sign "$hash" "$dmg"
-elif [ "${REQUIRE_IDENTITY:-0}" = 1 ]; then
-  echo "error: signing identity \"$identity\" not found (REQUIRE_IDENTITY=1)" >&2
-  exit 1
 fi
 hdiutil verify -quiet "$dmg"
 echo "Built $dmg"

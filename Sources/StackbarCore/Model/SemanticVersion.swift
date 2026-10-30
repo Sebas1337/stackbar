@@ -19,14 +19,24 @@ public struct SemanticVersion: Sendable, Hashable, Comparable, CustomStringConve
         if let plus = text.firstIndex(of: "+") { text = String(text[..<plus]) }
         let parts = text.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
         let numbers = parts[0].split(separator: ".", omittingEmptySubsequences: false)
-        guard numbers.count == 3, let major = Int(numbers[0]), let minor = Int(numbers[1]), let patch = Int(numbers[2]),
-              major >= 0, minor >= 0, patch >= 0
+        guard numbers.count == 3, numbers.allSatisfy(Self.isNumber),
+              let major = Int(numbers[0]), let minor = Int(numbers[1]), let patch = Int(numbers[2])
         else { return nil }
         self.major = major
         self.minor = minor
         self.patch = patch
         prerelease = parts.count == 2 ? parts[1].split(separator: ".", omittingEmptySubsequences: false).map(String.init) : []
-        guard !prerelease.contains(where: \.isEmpty) else { return nil }
+        // SemVer identifiers: [0-9A-Za-z-], numbers without leading zeros. Then equal versions are
+        // spelled alike, so the synthesized `==` agrees with `<`.
+        guard prerelease.allSatisfy({ identifier in
+            !identifier.isEmpty && identifier.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+                && (!identifier.allSatisfy(\.isNumber) || Self.isNumber(Substring(identifier)))
+        }) else { return nil }
+    }
+
+    /// Digits only, no leading zero (except "0" itself).
+    private static func isNumber(_ text: Substring) -> Bool {
+        !text.isEmpty && text.allSatisfy { $0.isASCII && $0.isNumber } && (text == "0" || text.first != "0")
     }
 
     public var description: String {

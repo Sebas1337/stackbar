@@ -57,7 +57,7 @@ jobs:
           security import "$RUNNER_TEMP/release.p12" -k "$keychain" -P "$RELEASE_CERT_PASSWORD" -T /usr/bin/codesign
           rm -f "$RUNNER_TEMP/release.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
-          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
           security find-certificate -c "Stackbar Release" -p "$keychain" > "$RUNNER_TEMP/release.pem"
           sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/release.pem"
           security find-identity -v -p codesigning "$keychain"
@@ -69,7 +69,8 @@ jobs:
       - name: Check signature
         run: |
           codesign --verify --strict --deep build/Stackbar.app
-          codesign -dvv build/Stackbar.app 2>&1 | grep -q '^Authority=Stackbar Release$'
+          # Not grep -q: codesign could die of SIGPIPE once grep quits, failing the step (pipefail).
+          codesign -dvv build/Stackbar.app 2>&1 | grep '^Authority=Stackbar Release$' > /dev/null
           codesign -d -r- build/Stackbar.app
 
       - name: Package
