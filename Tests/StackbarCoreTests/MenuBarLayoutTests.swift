@@ -276,4 +276,17 @@ struct CollapseFixtureTests {
         #expect(Set(collapsed.items.compactMap(\.identity)) == Set(expanded.items.compactMap(\.identity)))
         #expect(collapsed.bar.map(\.identity) == expanded.bar.map(\.identity))
     }
+
+    /// 1.1.1, after removing the icon's and divider's saved spots: the icon is seeded at the far
+    /// right, directly left of Control Center (immovable, like the clock), with the divider left of it.
+    @Test func seededIconSitsNextToControlCenter() throws {
+        let layout = try #require(MenuBarLayout.classify(try FixtureTests.load("v1.1.1-mbp16-macos26-icon.json")))
+        let icon = try #require(layout.icon)
+        #expect(icon.isOnScreen && layout.isMenuBarShown && layout.canCollapse)
+        let right = layout.items.filter { $0.window.frame.minX >= icon.frame.maxX }
+        #expect(right.map(\.window.windowID) == [288, 283]) // BentoBox (Control Center), Clock
+        #expect(right.allSatisfy { $0.isImmovable })
+        // Every item in the bar has an owner from its content frame; no whole-slot matches.
+        #expect(layout.items.allSatisfy { $0.bundleID != nil })
+    }
 }
