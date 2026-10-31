@@ -31,6 +31,13 @@ All notable changes to Stackbar are documented here. The format follows
 - With a full menu bar, moving items to the dropdown no longer spends seconds on drags that can't
   land.
 
+## [1.0.0-rc.1] - 2026-10-31
+
+Release candidate for 1.0.0, with everything under Unreleased. New since beta.4: an app icon, a
+DMG window with an arrow to Applications, setup that skips granted permissions and doesn't start
+over after the Screen Recording relaunch, macOS Menu Bar Settings… in the icon's menu, and the Debug
+submenu only on ⌘-right-click.
+
 ## [1.0.0-beta.4] - 2026-10-31
 
 Fourth pre-release, the same as 1.0.0-beta.3: the version beta.3 updates to, to test that
