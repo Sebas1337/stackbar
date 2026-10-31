@@ -2,15 +2,15 @@
 # Pack build/Stackbar.app into dist/Stackbar-<VERSION>.dmg (macOS only): a window with the app, a
 # link to Applications and an arrow between them on the background (scripts/dmg-background.swift),
 # so it is clear where to drag it. Finder lays the window out (AppleScript) on a writable image,
-# which is then compressed. Signed with $SIGN_IDENTITY like the app when it is in the keychain.
+# which is then compressed. The image itself is not signed: macOS checks a signed disk image when
+# it opens, and with the self-signed certificate that was a second "Open Anyway" before the app's
+# own (rc.1 test, 2026-10-31). The app inside is signed; updates use the zip and its SHA-256.
 # Run `make app` first (`make dmg` does).
 #
 # REQUIRE_LAYOUT=1: fail instead of warning when Finder couldn't lay the window out (CI, release).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-source scripts/lib/signing.sh
 
-identity="${SIGN_IDENTITY:-Stackbar Dev}"
 version="$(tr -d '[:space:]' < VERSION)"
 app="build/Stackbar.app"
 dmg="dist/Stackbar-$version.dmg"
@@ -105,9 +105,5 @@ mkdir -p dist
 rm -f "$dmg"
 hdiutil convert -quiet "$rw" -format UDZO -imagekey zlib-level=9 -o "$dmg"
 
-hash="$(require_signing_hash "$identity")"
-if [ -n "$hash" ]; then
-  codesign --force --sign "$hash" "$dmg"
-fi
 hdiutil verify -quiet "$dmg"
 echo "Built $dmg"

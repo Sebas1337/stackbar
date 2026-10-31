@@ -81,6 +81,9 @@ final class ItemCapturer: ItemCapturing {
 
     private func captureWithScreenCaptureKit(_ items: [MenuBarItem]) async -> Set<UInt32> {
         guard !items.isEmpty else { return [] }
+        // Images on disk: macOS asked before (an earlier version), so no explanation now.
+        let capturedBefore = (try? FileManager.default.contentsOfDirectory(atPath: Self.folder.path))?.isEmpty == false
+        CaptureNotice.explainOnce(unlessCapturedBefore: capturedBefore)
         let content: SCShareableContent
         do {
             content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)

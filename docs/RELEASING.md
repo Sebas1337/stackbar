@@ -52,7 +52,9 @@ against the running app's designated requirement).
   trusts the certificate for code signing and builds with `REQUIRE_IDENTITY=1`, so a release is
   never signed ad-hoc; it fails when the secrets are missing.
 - **Assets**: `Stackbar-X.Y.Z.dmg` (install: drag to Applications) and `Stackbar-X.Y.Z.zip` (the
-  updater downloads it), each with a `.sha256`.
+  updater downloads it), each with a `.sha256`. The app inside both is signed; the DMG itself is
+  not: Gatekeeper checks a signed disk image when it opens, which with this certificate was a
+  second "Open Anyway" before the app's own (rc.1 test, 2026-10-31).
 
 ### First launch (Gatekeeper)
 

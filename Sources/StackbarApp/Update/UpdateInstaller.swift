@@ -18,6 +18,8 @@ enum UpdateInstaller {
         case signature(OSStatus)
         case wrongApp(String)
         case relaunch(String)
+        case cancelled
+        case administrator(String)
 
         var errorDescription: String? {
             switch self {
@@ -30,22 +32,24 @@ enum UpdateInstaller {
                     + "download it from GitHub instead."
             case .wrongApp(let reason): reason
             case .relaunch(let reason): "Stackbar was updated but couldn't restart itself (\(reason)). Quit it and open it again."
+            case .cancelled: "The update was cancelled."
+            case .administrator(let reason): "Replacing Stackbar as administrator failed: \(reason)"
             }
         }
     }
 
     /// Why this copy can't replace itself, nil when it can.
     static func blocker() -> String? {
-        let bundle = Bundle.main.bundleURL
-        if bundle.path.contains("/AppTranslocation/") {
-            return "macOS runs this copy from a temporary location. Move Stackbar to Applications and open it from there."
-        }
-        // The swap removes the old bundle from its folder and replaces its contents.
-        for path in [bundle.deletingLastPathComponent().path, bundle.path, bundle.appendingPathComponent("Contents").path]
-        where !FileManager.default.isWritableFile(atPath: path) {
-            return "Stackbar can't write to \(path). Download the update instead."
-        }
-        return nil
+        guard Bundle.main.bundlePath.contains("/AppTranslocation/") else { return nil }
+        return "macOS runs this copy from a temporary location. Move Stackbar to Applications and open it from there."
+    }
+
+    /// The swap removes the old bundle from its folder and replaces its contents. Not writable: the
+    /// copy belongs to another user (installed from their account; rc.1 test, 2026-10-31), so the
+    /// swap asks for an administrator's password instead.
+    private static func canReplaceAsUser(_ bundle: URL) -> Bool {
+        [bundle.deletingLastPathComponent().path, bundle.path, bundle.appendingPathComponent("Contents").path]
+            .allSatisfy { FileManager.default.isWritableFile(atPath: $0) }
     }
 
     static func install(_ update: ReleaseFeed.Update) async throws {
@@ -63,7 +67,11 @@ enum UpdateInstaller {
         let app = try await Task.detached { try unpack(data, expected: expected, into: folder) }.value
         try checkBundle(app, version: update.version)
 
-        _ = try FileManager.default.replaceItemAt(bundle, withItemAt: app)
+        if canReplaceAsUser(bundle) {
+            _ = try FileManager.default.replaceItemAt(bundle, withItemAt: app)
+        } else {
+            try await replaceAsAdministrator(bundle, with: app, version: update.version)
+        }
         SpikeLog.shared.add("Update: installed \(update.version), relaunching")
         try relaunch(bundle)
     }
@@ -122,6 +130,41 @@ enum UpdateInstaller {
         guard (info["CFBundleShortVersionString"] as? String).flatMap(SemanticVersion.init) == version else {
             throw Failure.wrongApp("The download isn't version \(version).")
         }
+    }
+
+    /// Swaps the bundle with an administrator's password (macOS's own dialog, through `osascript`):
+    /// the old copy is moved aside first and put back when the new one can't be moved in. Paths go
+    /// in as arguments and through `quoted form of`, never into the script text.
+    private static func replaceAsAdministrator(_ bundle: URL, with app: URL, version: SemanticVersion) async throws {
+        let script = """
+            on run argv
+              set bundlePath to quoted form of item 1 of argv
+              set asidePath to quoted form of item 2 of argv
+              set newPath to quoted form of item 3 of argv
+              do shell script "/bin/rm -rf " & asidePath & " && /bin/mv " & bundlePath & " " & asidePath & " && { /bin/mv " & newPath & " " & bundlePath & " || { /bin/mv " & asidePath & " " & bundlePath & "; exit 1; }; } && /bin/rm -rf " & asidePath with prompt (item 4 of argv) with administrator privileges
+            end run
+            """
+        let prompt = "Stackbar \(version) replaces \(bundle.path), which belongs to another user on this Mac."
+        let arguments = ["-e", script, bundle.path, bundle.path + ".old", app.path, prompt]
+        let (status, output) = try await Task.detached { try runCapturing("/usr/bin/osascript", arguments) }.value
+        guard status == 0 else {
+            // -128: the user clicked Cancel in the password dialog.
+            if output.contains("-128") { throw Failure.cancelled }
+            throw Failure.administrator(output.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    private nonisolated static func runCapturing(_ tool: String, _ arguments: [String]) throws -> (Int32, String) {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: tool)
+        process.arguments = arguments
+        process.standardError = pipe
+        process.standardOutput = pipe
+        try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return (process.terminationStatus, String(decoding: data, as: UTF8.self))
     }
 
     private nonisolated static func run(_ tool: String, _ arguments: [String]) throws {

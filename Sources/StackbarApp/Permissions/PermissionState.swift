@@ -16,17 +16,23 @@ enum PermissionState {
         )
     }
 
-    /// Shows the system prompt and opens System Settings → Accessibility. macOS shows the prompt
-    /// only once per app, so the settings pane is what the user sees on every later request.
+    /// The first request shows macOS's prompt, which adds Stackbar to the Accessibility list and has
+    /// its own Open System Settings button; later requests open System Settings → Accessibility
+    /// directly. Not both at once: the prompt then covered the settings window (rc.1 test).
     static func requestAccessibility(alertIfGranted: Bool = true) {
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        let prompts = !UserDefaults.standard.bool(forKey: "AccessibilityPrompted")
+        let options = ["AXTrustedCheckOptionPrompt": prompts] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
-        logger.notice("requestAccessibility: trusted=\(trusted, privacy: .public)")
+        logger.notice("requestAccessibility: trusted=\(trusted, privacy: .public), prompt=\(prompts, privacy: .public)")
         guard !trusted else {
             if alertIfGranted { showAlreadyGranted("Accessibility") }
             return
         }
-        openSettings("Privacy_Accessibility")
+        if prompts {
+            UserDefaults.standard.set(true, forKey: "AccessibilityPrompted")
+        } else {
+            openSettings("Privacy_Accessibility")
+        }
     }
 
     /// Shows the system prompt (once per app) and opens System Settings → Screen Recording.
