@@ -38,6 +38,14 @@ All notable changes to Stackbar are documented here. The format follows
 ### Fixed
 - Clicking Spotlight in the dropdown opens Spotlight (its search field closed again at once).
 
+## [1.0.0-rc.2] - 2026-10-31
+
+Second release candidate. New since rc.1: the DMG opens without its own "Open Anyway" (only the
+app's remains); updating a copy another user installed asks for an administrator's password;
+asking for Accessibility no longer shows macOS's prompt and System Settings at once; Stackbar
+explains macOS's screen-access question before it comes; a simpler app icon; Spotlight opens
+from the dropdown.
+
 ## [1.0.0-rc.1] - 2026-10-31
 
 Release candidate for 1.0.0, with everything under Unreleased. New since beta.4: an app icon, a
