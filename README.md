@@ -8,7 +8,7 @@ No account, no tracking, no subscription.
 ![macOS 26 Tahoe](https://img.shields.io/badge/macOS-26%20Tahoe-blue)
 [![MIT license](https://img.shields.io/github/license/Sebas1337/stackbar)](LICENSE)
 
-![Stackbar's dropdown under its menu bar icon, listing the menu bar items moved out of the bar](docs/images/dropdown.png)
+<!-- screenshot: ![Stackbar's dropdown under its menu bar icon, listing the menu bar items moved out of the bar](docs/images/dropdown.png) -->
 
 ## Why Stackbar
 
@@ -23,9 +23,11 @@ No account, no tracking, no subscription.
 - **Free and private.** Open source under the MIT license. Stackbar doesn't collect anything; the
   only thing it contacts is GitHub, to check for updates.
 
+<!-- screenshot:
 | Before | After |
 |---|---|
 | ![A crowded MacBook menu bar](docs/images/bar-before.png) | ![The same menu bar tidied by Stackbar](docs/images/bar-after.png) |
+-->
 
 ## Features
 
@@ -39,7 +41,7 @@ No account, no tracking, no subscription.
 - Automatic updates from GitHub, installed in place (permissions stay granted)
 - Works on Apple silicon and Intel Macs with macOS 26 Tahoe
 
-![Stackbar Settings: drag items between the Menu Bar and Dropdown lists](docs/images/settings.png)
+<!-- screenshot: ![Stackbar Settings: drag items between the Menu Bar and Dropdown lists](docs/images/settings.png) -->
 
 ## Install
 
@@ -52,7 +54,7 @@ No account, no tracking, no subscription.
    once: updates installed by Stackbar itself open normally.
 3. Setup walks you through the rest: open at login, then the two permissions Stackbar needs.
 
-![Stackbar's setup asking for the Accessibility permission](docs/images/setup.png)
+<!-- screenshot: ![Stackbar's setup asking for the Accessibility permission](docs/images/setup.png) -->
 
 ## How to use Stackbar
 
