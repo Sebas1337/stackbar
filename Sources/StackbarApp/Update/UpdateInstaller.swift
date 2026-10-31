@@ -91,7 +91,10 @@ enum UpdateInstaller {
         let extracted = folder.appendingPathComponent("extracted", isDirectory: true)
         try run("/usr/bin/ditto", ["-x", "-k", archive.path, extracted.path])
         let app = extracted.appendingPathComponent("Stackbar.app")
-        guard FileManager.default.fileExists(atPath: app.path) else { throw Failure.archive }
+        // The bundle itself, not a symlink to a signed copy elsewhere (the signature check and the
+        // swap would follow it, and the link would be installed).
+        let kind = try? app.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])
+        guard kind?.isSymbolicLink == false, kind?.isDirectory == true else { throw Failure.archive }
         _ = try? run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", app.path])
         try checkSignature(of: app)
         return app
@@ -114,19 +117,34 @@ enum UpdateInstaller {
     /// The new app must satisfy the running app's designated requirement: same bundle id, same
     /// signing certificate. That is what TCC checks, so the permissions carry over.
     private nonisolated static func checkSignature(of app: URL) throws {
-        var running: SecCode?
-        var runningStatic: SecStaticCode?
-        var requirement: SecRequirement?
+        let requirement = try designatedRequirement()
         var candidate: SecStaticCode?
-        var status = SecCodeCopySelf([], &running)
-        if status == errSecSuccess, let running { status = SecCodeCopyStaticCode(running, [], &runningStatic) }
-        if status == errSecSuccess, let runningStatic { status = SecCodeCopyDesignatedRequirement(runningStatic, [], &requirement) }
-        if status == errSecSuccess { status = SecStaticCodeCreateWithPath(app as CFURL, [], &candidate) }
+        var status = SecStaticCodeCreateWithPath(app as CFURL, [], &candidate)
         if status == errSecSuccess, let candidate {
             let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode)
             status = SecStaticCodeCheckValidity(candidate, flags, requirement)
         }
         guard status == errSecSuccess else { throw Failure.signature(status) }
+    }
+
+    /// The running app's designated requirement: its bundle id and signing certificate.
+    private nonisolated static func designatedRequirement() throws -> SecRequirement {
+        var running: SecCode?
+        var runningStatic: SecStaticCode?
+        var requirement: SecRequirement?
+        var status = SecCodeCopySelf([], &running)
+        if status == errSecSuccess, let running { status = SecCodeCopyStaticCode(running, [], &runningStatic) }
+        if status == errSecSuccess, let runningStatic { status = SecCodeCopyDesignatedRequirement(runningStatic, [], &requirement) }
+        guard status == errSecSuccess, let requirement else { throw Failure.signature(status) }
+        return requirement
+    }
+
+    /// The designated requirement as text, for `codesign -R` in the administrator's swap.
+    private nonisolated static func designatedRequirementText() throws -> String {
+        var text: CFString?
+        let status = SecRequirementCopyString(try designatedRequirement(), [], &text)
+        guard status == errSecSuccess, let text else { throw Failure.signature(status) }
+        return text as String
     }
 
     private static func checkBundle(_ app: URL, version: SemanticVersion) throws {
@@ -139,22 +157,44 @@ enum UpdateInstaller {
         }
     }
 
-    /// Swaps the bundle with an administrator's password (macOS's own dialog, through `osascript`):
-    /// the old copy is moved aside first (to a new name, so nothing that exists is removed) and put
-    /// back when the new one can't be moved in. Paths go
-    /// in as arguments and through `quoted form of`, never into the script text.
+    /// Swaps the bundle with an administrator's password (macOS's own dialog, through `osascript`).
+    /// The checked app sits in this user's temporary folder, and the dialog can stay open for
+    /// minutes, so root works on its own copy: `ditto` next to the bundle, owned like the old copy
+    /// (`mv` would keep this user as owner, and they could change an app another user runs), not
+    /// group- or world-writable, and checked against the designated requirement again. Then the
+    /// old copy is moved aside (to a new name, so nothing that exists is removed) and put back when
+    /// the new one can't be moved in. A failed cleanup of the old copy doesn't fail the update.
+    /// The shell script is fixed text; paths and the requirement go in as arguments, each through
+    /// `quoted form of`.
+    private static let administratorSwap = """
+        bundle=$1 aside=$2 staged=$3 new=$4 requirement=$5
+        fail() { /bin/rm -rf "$staged"; exit 1; }
+        /usr/bin/ditto "$new" "$staged" || fail
+        /usr/sbin/chown -R "$(/usr/bin/stat -f %u:%g "$bundle")" "$staged" || fail
+        /bin/chmod -R go-w "$staged" || fail
+        /usr/bin/codesign --verify --strict --deep -R "=$requirement" "$staged" || fail
+        /bin/mv "$bundle" "$aside" || fail
+        /bin/mv "$staged" "$bundle" || { /bin/mv "$aside" "$bundle"; fail; }
+        /bin/rm -rf "$aside"
+        exit 0
+        """
+
     private static func replaceAsAdministrator(_ bundle: URL, with app: URL, version: SemanticVersion) async throws {
         let script = """
             on run argv
-              set bundlePath to quoted form of item 1 of argv
-              set asidePath to quoted form of item 2 of argv
-              set newPath to quoted form of item 3 of argv
-              do shell script "/bin/mv " & bundlePath & " " & asidePath & " && { /bin/mv " & newPath & " " & bundlePath & " || { /bin/mv " & asidePath & " " & bundlePath & "; exit 1; }; } && /bin/rm -rf " & asidePath with prompt (item 4 of argv) with administrator privileges
+              set command to "/bin/sh -c " & quoted form of (item 1 of argv) & " sh"
+              repeat with i from 2 to 6
+                set command to command & " " & quoted form of (item i of argv)
+              end repeat
+              do shell script command with prompt (item 7 of argv) with administrator privileges
             end run
             """
         let prompt = "Stackbar \(version) replaces \(bundle.path), which belongs to another user on this Mac."
-        let aside = bundle.deletingLastPathComponent().appendingPathComponent(".Stackbar-\(UUID().uuidString).app").path
-        let arguments = ["-e", script, bundle.path, aside, app.path, prompt]
+        let folder = bundle.deletingLastPathComponent()
+        let aside = folder.appendingPathComponent(".Stackbar-\(UUID().uuidString).app").path
+        let staged = folder.appendingPathComponent(".Stackbar-new-\(UUID().uuidString).app").path
+        let requirement = try designatedRequirementText()
+        let arguments = ["-e", script, Self.administratorSwap, bundle.path, aside, staged, app.path, requirement, prompt]
         let (status, output) = try await Task.detached { try runCapturing("/usr/bin/osascript", arguments) }.value
         guard status == 0 else {
             // -128: the user clicked Cancel in the password dialog.
