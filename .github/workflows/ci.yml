@@ -45,5 +45,6 @@ jobs:
           plutil -lint build/Stackbar.app/Contents/Info.plist
           lipo build/Stackbar.app/Contents/MacOS/Stackbar -verify_arch arm64 x86_64
           codesign -dv build/Stackbar.app
-      - name: DMG
-        run: scripts/make-dmg.sh
+          test -s build/Stackbar.app/Contents/Resources/AppIcon.icns
+      - name: DMG (with its Finder window layout)
+        run: REQUIRE_LAYOUT=1 scripts/make-dmg.sh

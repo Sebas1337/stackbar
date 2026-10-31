@@ -8,6 +8,8 @@
 	<string>Stackbar</string>
 	<key>CFBundleExecutable</key>
 	<string>Stackbar</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.sebas1337.stackbar</string>
 	<key>CFBundleInfoDictionaryVersion</key>

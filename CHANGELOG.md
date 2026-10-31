@@ -7,7 +7,7 @@ All notable changes to Stackbar are documented here. The format follows
 ## [Unreleased]
 
 ### Added
-- Settings → General: open Stackbar at login (also offered at the end of setup), a keyboard
+- Settings → General: open Stackbar at login (also offered at the start of setup), a keyboard
   shortcut that opens the dropdown from anywhere, and collapsing the menu bar again
   automatically after Show All Items.
 - Updates: Stackbar checks GitHub Releases once a day (or Check for Updates… in the icon's menu)
@@ -16,9 +16,18 @@ All notable changes to Stackbar are documented here. The format follows
   once ("Open Anyway"), not after every update.
 - Setup warns when macOS runs Stackbar from a temporary copy (opened without moving it to
   Applications), where it can't update itself.
+- An app icon.
+- The DMG opens as a window with an arrow from Stackbar to Applications, to show where to drag it.
+- The icon's menu links to macOS Menu Bar Settings, where you choose which items macOS shows in
+  the menu bar at all.
 
 ### Changed
 - Moving items is about twice as fast.
+- Setup asks for Open at Login on its first page, then Accessibility, then Screen Recording, and
+  skips permissions that are already granted. After the relaunch Screen Recording needs it no
+  longer starts over: with everything granted it finishes by itself and opens Settings.
+- Setup explains macOS's monthly “bypass the system private window picker” question.
+- The Debug submenu only shows when you open the icon's menu with ⌘ held (⌘-right-click).
 - With a full menu bar, moving items to the dropdown no longer spends seconds on drags that can't
   land.
 

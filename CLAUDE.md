@@ -22,7 +22,8 @@ ScreenCaptureKit, CoreGraphics window APIs or Accessibility APIs.
 - **You can't see the Mac; the user is your eyes.** After changing app code, end with a
   numbered "Verify on Mac" checklist: `make run`, which permission prompts to accept, what to
   click, what to look for. When discovery, layout, notch, capture or move behaviour is
-  involved, ask for the output of `Stackbar --dump` (or Debug → Copy diagnostics) pasted back.
+  involved, ask for the output of `Stackbar --dump` (or Debug → Copy diagnostics; the Debug
+  submenu shows on ⌘-right-click of the icon) pasted back.
   Save pasted dumps unchanged as `Tests/StackbarCoreTests/Fixtures/<milestone>-<machine>-<macos>.json`
   and test Core against them.
 

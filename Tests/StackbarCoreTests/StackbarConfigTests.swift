@@ -30,6 +30,7 @@ struct StackbarConfigTests {
         config.assign(Self.sound, to: .dropdown, name: "Sound")
         config.assign(Self.untitled, to: .dropdown, name: "App")
         config.onboardingCompleted = true
+        config.onboardingWelcomeDone = true
         config.isCollapsed = true
         config.hotKey = HotKey(keyCode: 1, modifiers: [.control, .option], key: "S")
         config.autoCollapseSeconds = 30

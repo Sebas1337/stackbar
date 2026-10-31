@@ -23,6 +23,8 @@ public struct StackbarConfig: Codable, Sendable, Equatable {
     public var version = currentVersion
     public var assignments: [Assignment] = []
     public var onboardingCompleted = false
+    /// Setup got past its welcome page (Open at Login chosen), so it resumes at the permissions.
+    public var onboardingWelcomeDone = false
     public var isCollapsed = false
     /// Opens and closes the panel from anywhere; nil: none.
     public var hotKey: HotKey?
@@ -35,7 +37,7 @@ public struct StackbarConfig: Codable, Sendable, Equatable {
 
     public init() {}
 
-    /// Keys added after 0.6 (M5) may be missing: they get their defaults, so older files load. A new
+    /// Keys added after 0.6 (M5, 1.1) may be missing: they get their defaults, so older files load. A new
     /// key must be read here too, or it never loads back (`roundTripsThroughTheFile` sets them all).
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -43,6 +45,7 @@ public struct StackbarConfig: Codable, Sendable, Equatable {
         version = try container.decode(Int.self, forKey: .version)
         assignments = try container.decodeIfPresent([Assignment].self, forKey: .assignments) ?? defaults.assignments
         onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? defaults.onboardingCompleted
+        onboardingWelcomeDone = try container.decodeIfPresent(Bool.self, forKey: .onboardingWelcomeDone) ?? defaults.onboardingWelcomeDone
         isCollapsed = try container.decodeIfPresent(Bool.self, forKey: .isCollapsed) ?? defaults.isCollapsed
         hotKey = try container.decodeIfPresent(HotKey.self, forKey: .hotKey)
         autoCollapseSeconds = try container.decodeIfPresent(Int.self, forKey: .autoCollapseSeconds)

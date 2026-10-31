@@ -3,12 +3,14 @@ import StackbarCore
 
 /// Stackbar's **icon** status item. A left click runs `onClick` (opens or closes the dropdown
 /// panel); a right click or ⌃-click opens the menu with the version, Show All Items / Collapse,
-/// Settings, Debug and Quit.
+/// Settings, macOS Menu Bar Settings, Check for Updates and Quit; with ⌘ held also Debug.
 @MainActor
 final class StatusIconController: NSObject {
     private let statusItem: NSStatusItem
     private let menu: NSMenu
     private var collapseItem: NSMenuItem?
+    /// The Debug submenu and its separator: hidden unless the menu opens with ⌘ held.
+    private var debugItems: [NSMenuItem] = []
     private var isCollapsed: () -> Bool = { false }
 
     var onClick: (() -> Void)?
@@ -71,37 +73,46 @@ final class StatusIconController: NSObject {
         collapseItem = item
     }
 
-    /// Adds "Settings…" (⌘,) below Show All Items. Call after `installCollapseItem`.
+    /// Adds "Settings…" (⌘,) and "macOS Menu Bar Settings…" below Show All Items. Call after
+    /// `installCollapseItem`.
     func installSettingsItem(_ open: @escaping () -> Void) {
         let item = NSMenuItem(title: "Settings…", action: open)
         item.keyEquivalent = ","
         menu.insertItem(item, at: 3)
+        // Which items macOS shows at all is decided there, not by Stackbar.
+        let system = NSMenuItem(title: "macOS Menu Bar Settings…", action: { SystemMenuBarSettings.open() })
+        menu.insertItem(system, at: 4)
     }
 
-    /// Adds "Check for Updates…" below Settings. Call after `installSettingsItem`.
+    /// Adds "Check for Updates…" below the two settings items. Call after `installSettingsItem`.
     func installUpdateItem(_ check: @escaping () -> Void) {
-        menu.insertItem(NSMenuItem(title: "Check for Updates…", action: check), at: 4)
+        menu.insertItem(NSMenuItem(title: "Check for Updates…", action: check), at: 5)
     }
 
-    /// Adds the Debug submenu above Quit.
+    /// Adds the Debug submenu above Quit, shown only when the menu is opened with ⌘ held
+    /// (⌘-right-click; user wish 2026-10-31).
     func installDebugMenu(_ debug: DebugController) {
         let quitIndex = menu.items.count - 1
-        menu.insertItem(DebugMenu.make(debug: debug), at: quitIndex)
-        menu.insertItem(.separator(), at: quitIndex + 1)
+        let submenu = DebugMenu.make(debug: debug)
+        let separator = NSMenuItem.separator()
+        menu.insertItem(submenu, at: quitIndex)
+        menu.insertItem(separator, at: quitIndex + 1)
+        debugItems = [submenu, separator]
     }
 
     @objc private func clicked(_ sender: NSStatusBarButton) {
         let event = NSApp.currentEvent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true || onClick == nil {
-            showMenu()
+            showMenu(withDebug: event?.modifierFlags.contains(.command) == true)
         } else {
             onClick?()
         }
     }
 
     /// A status item with a `menu` opens it on every click, so attach it only for this one.
-    private func showMenu() {
+    private func showMenu(withDebug: Bool) {
         onMenu?()
+        for item in debugItems { item.isHidden = !withDebug }
         collapseItem?.title = isCollapsed() ? "Show All Items" : "Collapse Menu Bar"
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
