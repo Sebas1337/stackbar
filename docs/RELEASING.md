@@ -47,10 +47,14 @@ against the running app's designated requirement).
   password into `~/Stackbar Release Certificate` and prints the next steps. **Back that folder up**:
   without it, the next release is signed differently and every user has to grant the permissions
   again (and the updater refuses it). Never re-create it while releases signed with it exist.
-- **GitHub secrets** (repo Settings → Secrets and variables → Actions): `RELEASE_CERT_P12` (the
-  `.p12`, base64) and `RELEASE_CERT_PASSWORD`. `release.yml` imports them into a temporary keychain,
-  trusts the certificate for code signing and builds with `REQUIRE_IDENTITY=1`, so a release is
-  never signed ad-hoc; it fails when the secrets are missing.
+- **GitHub secrets**, in the **`release` environment** (repo Settings → Environments → `release`;
+  deployment branches and tags: "Selected", tag rule `v*`; no reviewers, decided 2026-10-31):
+  `RELEASE_CERT_P12` (the `.p12`, base64) and `RELEASE_CERT_PASSWORD`. Not as repository secrets:
+  those can be read by a workflow changed on any branch, and whoever has this key can sign code
+  the updater accepts and that inherits users' permissions. `release.yml` runs in that environment,
+  refuses tags that aren't on `main`, imports the secrets into a temporary keychain, trusts the
+  certificate for code signing and builds with `REQUIRE_IDENTITY=1`, so a release is never signed
+  ad-hoc; it fails when the secrets are missing.
 - **Assets**: `Stackbar-X.Y.Z.dmg` (install: drag to Applications) and `Stackbar-X.Y.Z.zip` (the
   updater downloads it), each with a `.sha256`. The app inside both is signed; the DMG itself is
   not: Gatekeeper checks a signed disk image when it opens, which with this certificate was a

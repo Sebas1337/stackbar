@@ -6,6 +6,20 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- On a full menu bar, a fresh install could put Stackbar's icon behind the notch, out of reach.
+- With an app in full screen (or an auto-hiding menu bar), launching an app no longer makes
+  Stackbar take over the mouse for nothing, nor stop arranging those items afterwards.
+- An item that can't be moved is no longer dragged again every time another app starts.
+- Settings says "no room" again for items that can't be brought out from behind the notch.
+- An unreadable settings file is kept as `config.json.corrupt.bak` instead of being replaced.
+
+### Security
+- Updating a copy installed from another account (with an administrator's password) keeps
+  that copy's owner and checks the new version's signature again just before swapping it in.
+- Diagnostics no longer contain user names from file paths, nor the names of third-party menu
+  bar items whose app didn't answer in time.
+
 ## [1.1.0] - 2026-10-31
 
 ### Added

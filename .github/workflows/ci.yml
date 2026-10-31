@@ -17,6 +17,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only token: CI only builds and tests.
+permissions:
+  contents: read
+
 jobs:
   linux:
     runs-on: ubuntu-latest
