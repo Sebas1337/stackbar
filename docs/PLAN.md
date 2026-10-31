@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **M4 done (v0.6.0, 2026-10-30). Next: M5 (polish & release).**
+Status: **M5 done: 1.0.0 released (2026-10-31). Next: 1.0.1 (Spotlight without expanding, README screenshots).**
 
 ## Goal
 
@@ -308,10 +308,17 @@ only the clicked item appearing in the bar instead of every dropdown item.
   window and onboarding fine; fixed for rc.2: the signed DMG needed its own "Open Anyway" (now
   unsigned), the updater failed on a copy owned by another account (now asks for an admin
   password), the Accessibility prompt and System Settings opened together (now macOS's prompt comes
-  with the page, the button only opens System Settings), the icon was too busy (now the menu bar stack)
+  with the page, the button only opens System Settings), the icon was too busy (now the menu bar stack);
+  Spotlight from the dropdown closed at once (now a real click follows the press)
 - Done when: the DMG from GitHub Releases opens on a clean Mac (without Gatekeeper warnings if
   Developer ID was chosen; with exactly the one documented "Open Anyway" step otherwise),
   permissions survive an update, and launch at login works.
+- **Result (2026-10-31)**: done, released as 1.0.0 (same code as rc.2). Verified on the host:
+  beta.1 → beta.4 and rc.1 → rc.2 through the updater without permission prompts (rc.2 also with
+  an administrator password for a copy installed from another account); in a fresh administrator
+  account the DMG opened without a prompt, the app needed one "Open Anyway", setup and Open at Login
+  worked. Open: Standard accounts (Risks); Spotlight from the dropdown takes 2–3 s (expand, press,
+  wait, click; user idea: open it directly, 1.0.1); README screenshots.
 
 ## Risks / open questions
 
