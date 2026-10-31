@@ -21,7 +21,7 @@ final class ConfigStore {
         case .missing:
             logger.notice("no config yet")
         case .corrupt:
-            logger.error("config unreadable, using defaults")
+            logger.error("config unreadable, backed up to config.json.corrupt.bak, using defaults")
         case .newerVersion(let version):
             logger.error("config version \(version, privacy: .public) is newer, backed up, using defaults")
         }
