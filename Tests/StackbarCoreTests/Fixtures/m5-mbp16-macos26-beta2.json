@@ -1,0 +1,1355 @@
+{
+  "axItems" : [
+    {
+      "axDescription" : {
+        "text" : "VPN"
+      },
+      "bundleID" : "com.apple.systemuiserver",
+      "frame" : {
+        "height" : 22,
+        "width" : 22,
+        "x" : -4103,
+        "y" : 5.5
+      },
+      "index" : 0,
+      "pid" : 681
+    },
+    {
+      "bundleID" : "com.apple.systemuiserver",
+      "frame" : {
+        "height" : 22,
+        "width" : 22,
+        "x" : 993,
+        "y" : 5.5
+      },
+      "index" : 1,
+      "pid" : 681
+    },
+    {
+      "axDescription" : {
+        "text" : "Bluetooth"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 16,
+        "x" : 1263,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.bluetooth"
+      },
+      "index" : 0,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "Clock"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 119,
+        "x" : 1603,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.clock"
+      },
+      "index" : 1,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "Sound"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 22,
+        "x" : 1413,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.sound"
+      },
+      "index" : 2,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "Wi‑Fi, connected, 3 bars"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 22,
+        "x" : 1225,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.wifi"
+      },
+      "index" : 3,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "Control Center"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 26,
+        "x" : 1561,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.controlcenter"
+      },
+      "index" : 4,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 5,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 6,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 33,
+        "width" : 46,
+        "x" : 1088,
+        "y" : 0
+      },
+      "index" : 7,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 8,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 9,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 10,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 11,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "Battery"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 26,
+        "x" : -4209,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.battery"
+      },
+      "index" : 12,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 13,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "User"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 16.5,
+        "x" : 1031,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.user"
+      },
+      "index" : 14,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "AirDrop"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 17.5,
+        "x" : 1527,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.airdrop"
+      },
+      "index" : 15,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "Keyboard Brightness"
+      },
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 22,
+        "width" : 20,
+        "x" : 1295,
+        "y" : 5.5
+      },
+      "identifier" : {
+        "text" : "com.apple.menuextra.keyboard-brightness"
+      },
+      "index" : 16,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 17,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 18,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 19,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 20,
+      "pid" : 680
+    },
+    {
+      "bundleID" : "com.apple.controlcenter",
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 1117
+      },
+      "index" : 21,
+      "pid" : 680
+    },
+    {
+      "axDescription" : {
+        "text" : "Show Emoji & Symbols"
+      },
+      "bundleID" : "com.apple.TextInputMenuAgent",
+      "frame" : {
+        "height" : 24,
+        "width" : 36.5,
+        "x" : 1322,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 1282
+    },
+    {
+      "bundleID" : "hash:4e15732a6109",
+      "frame" : {
+        "height" : 24,
+        "width" : 32,
+        "x" : 1095,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 1287
+    },
+    {
+      "bundleID" : "hash:524a361ed6e0",
+      "frame" : {
+        "height" : 24,
+        "width" : 47,
+        "x" : 1171,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 1346
+    },
+    {
+      "bundleID" : "hash:3685e32afc5f",
+      "frame" : {
+        "height" : 24,
+        "width" : 28,
+        "x" : -4066,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 1440
+    },
+    {
+      "bundleID" : "hash:3685e32afc5f",
+      "frame" : {
+        "height" : 24,
+        "width" : 33,
+        "x" : 1365,
+        "y" : 4.5
+      },
+      "index" : 1,
+      "pid" : 1440
+    },
+    {
+      "bundleID" : "hash:18cfcff7a03a",
+      "frame" : {
+        "height" : 24,
+        "width" : 24,
+        "x" : 1450,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 65106
+    },
+    {
+      "axDescription" : {
+        "text" : "mostly cloudy"
+      },
+      "bundleID" : "com.apple.weather.menu",
+      "frame" : {
+        "height" : 24,
+        "width" : 65.5,
+        "x" : -4176,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 33399,
+      "title" : {
+        "text" : "Weather"
+      }
+    },
+    {
+      "axDescription" : {
+        "hash" : "7b20563eb45b",
+        "length" : 3
+      },
+      "bundleID" : "hash:8265f162ad51",
+      "frame" : {
+        "height" : 24,
+        "width" : 24,
+        "x" : 1141,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 46846
+    },
+    {
+      "axDescription" : {
+        "text" : "Search"
+      },
+      "bundleID" : "com.apple.Spotlight",
+      "frame" : {
+        "height" : 24,
+        "width" : 34,
+        "x" : 1055,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 86028,
+      "title" : {
+        "text" : "Spotlight"
+      }
+    },
+    {
+      "axDescription" : {
+        "text" : "Stackbar"
+      },
+      "bundleID" : "io.github.sebas1337.stackbar",
+      "frame" : {
+        "height" : 24,
+        "width" : 24,
+        "x" : 1488,
+        "y" : 4.5
+      },
+      "index" : 0,
+      "pid" : 8202
+    },
+    {
+      "axDescription" : {
+        "text" : "Stackbar divider"
+      },
+      "bundleID" : "io.github.sebas1337.stackbar",
+      "frame" : {
+        "height" : 24,
+        "width" : 5002,
+        "x" : -4024,
+        "y" : 4.5
+      },
+      "index" : 1,
+      "pid" : 8202
+    }
+  ],
+  "createdAt" : "2026-10-31T10:23:25Z",
+  "macOSVersion" : "Version 26.6.2 (Build 25G83)",
+  "notes" : [
+    "10:13:26 Divider collapsed (length 10000)",
+    "10:13:26 Arrangement: upToDate, moved [], failed [], blocked [], room moves 0, reverted [], misplaced after reveal [], cancelled=false, collapsed=true",
+    "10:23:20 Dropdown refresh: upToDate, 4 items, captured 0, not capturable [], collapsed=true"
+  ],
+  "permissions" : {
+    "accessibility" : true,
+    "screenRecording" : true
+  },
+  "redacted" : true,
+  "schemaVersion" : 1,
+  "screens" : [
+    {
+      "auxiliaryTopLeft" : {
+        "height" : 32,
+        "width" : 771,
+        "x" : 0,
+        "y" : 0
+      },
+      "auxiliaryTopRight" : {
+        "height" : 32,
+        "width" : 772,
+        "x" : 956,
+        "y" : 0
+      },
+      "backingScale" : 2,
+      "displayID" : 1,
+      "frame" : {
+        "height" : 1117,
+        "width" : 1728,
+        "x" : 0,
+        "y" : 0
+      },
+      "isMain" : true,
+      "isPrimary" : true,
+      "safeAreaTop" : 32,
+      "visibleFrame" : {
+        "height" : 1084,
+        "width" : 1679,
+        "x" : 49,
+        "y" : 33
+      }
+    }
+  ],
+  "stackbar" : {
+    "build" : "99",
+    "version" : "1.0.0-beta.2"
+  },
+  "stackbarItems" : {
+    "dividerLength" : 10000,
+    "dividerWindowID" : 8942,
+    "iconWindowID" : 8939
+  },
+  "windows" : [
+    {
+      "frame" : {
+        "height" : 187,
+        "width" : 260,
+        "x" : 1462,
+        "y" : 34
+      },
+      "isOnScreen" : true,
+      "layer" : 101,
+      "ownerBundleID" : "io.github.sebas1337.stackbar",
+      "ownerName" : "Stackbar",
+      "ownerPID" : 8202,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 8965
+    },
+    {
+      "frame" : {
+        "height" : 166,
+        "width" : 220,
+        "x" : 1390,
+        "y" : 37
+      },
+      "isOnScreen" : false,
+      "layer" : 101,
+      "ownerBundleID" : "io.github.sebas1337.stackbar",
+      "ownerName" : "Stackbar",
+      "ownerPID" : 8202,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 8964
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 5016,
+        "x" : -4031,
+        "y" : 0
+      },
+      "isOnScreen" : false,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "StackbarDivider"
+      },
+      "windowID" : 8942
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 38,
+        "x" : 1481,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "StackbarIcon"
+      },
+      "windowID" : 8939
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 1728,
+        "x" : 0,
+        "y" : 0
+      },
+      "isOnScreen" : false,
+      "layer" : 24,
+      "ownerName" : "hash:be4e55ee6c06",
+      "ownerPID" : 400,
+      "title" : {
+        "hash" : "af87d89c398a",
+        "length" : 7
+      },
+      "windowID" : 8796
+    },
+    {
+      "frame" : {
+        "height" : 300,
+        "width" : 300,
+        "x" : 863,
+        "y" : 558
+      },
+      "isOnScreen" : false,
+      "layer" : 3000,
+      "ownerBundleID" : "com.apple.AccessibilityVisualsAgent",
+      "ownerName" : "AccessibilityVisualsAgent",
+      "ownerPID" : 4275,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 8744
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 32,
+        "x" : 1056,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "Item-0"
+      },
+      "windowID" : 8073
+    },
+    {
+      "frame" : {
+        "height" : 56,
+        "width" : 640,
+        "x" : 335,
+        "y" : 506
+      },
+      "isOnScreen" : false,
+      "layer" : 23,
+      "ownerBundleID" : "com.apple.Spotlight",
+      "ownerName" : "Spotlight",
+      "ownerPID" : 86028,
+      "title" : {
+        "hash" : "e60d230501b9",
+        "length" : 9
+      },
+      "windowID" : 8072
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 38,
+        "x" : 1134,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "hash" : "afde39fbbd8f",
+        "length" : 6
+      },
+      "windowID" : 6650
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 1728,
+        "x" : 0,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 24,
+      "ownerName" : "hash:be4e55ee6c06",
+      "ownerPID" : 400,
+      "title" : {
+        "hash" : "af87d89c398a",
+        "length" : 7
+      },
+      "windowID" : 5660
+    },
+    {
+      "frame" : {
+        "height" : 40,
+        "width" : 28,
+        "x" : 500,
+        "y" : 1008
+      },
+      "isOnScreen" : false,
+      "layer" : 2147483630,
+      "ownerName" : "hash:be4e55ee6c06",
+      "ownerPID" : 400,
+      "title" : {
+        "hash" : "3dd964e5fb7d",
+        "length" : 6
+      },
+      "windowID" : 4
+    },
+    {
+      "frame" : {
+        "height" : 577,
+        "width" : 844,
+        "x" : 141,
+        "y" : 209
+      },
+      "isOnScreen" : false,
+      "layer" : 23,
+      "ownerBundleID" : "com.apple.Spotlight",
+      "ownerName" : "Spotlight",
+      "ownerPID" : 86028,
+      "title" : {
+        "hash" : "e60d230501b9",
+        "length" : 9
+      },
+      "windowID" : 8071
+    },
+    {
+      "frame" : {
+        "height" : 19,
+        "width" : 66,
+        "x" : 1129,
+        "y" : 35
+      },
+      "isOnScreen" : false,
+      "layer" : 103,
+      "ownerBundleID" : "hash:3685e32afc5f",
+      "ownerName" : "hash:3e311aaa6da8",
+      "ownerPID" : 1440,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 5292
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 47,
+        "x" : 1358,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "hash" : "63ba373c9423",
+        "length" : 8
+      },
+      "windowID" : 93
+    },
+    {
+      "frame" : {
+        "height" : 1117,
+        "width" : 1728,
+        "x" : 0,
+        "y" : 0
+      },
+      "isOnScreen" : false,
+      "layer" : 21,
+      "ownerBundleID" : "com.apple.notificationcenterui",
+      "ownerName" : "Notification Center",
+      "ownerPID" : 718,
+      "title" : {
+        "hash" : "f05d1d734b81",
+        "length" : 19
+      },
+      "windowID" : 13
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 42,
+        "x" : -4217,
+        "y" : 0
+      },
+      "isOnScreen" : false,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "Battery"
+      },
+      "windowID" : 4777
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 64,
+        "x" : -4175,
+        "y" : 0
+      },
+      "isOnScreen" : false,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "Item-0"
+      },
+      "windowID" : 5148
+    },
+    {
+      "frame" : {
+        "height" : 19,
+        "width" : 286,
+        "x" : 677,
+        "y" : 665
+      },
+      "isOnScreen" : false,
+      "layer" : 103,
+      "ownerBundleID" : "com.apple.Safari",
+      "ownerName" : "Safari",
+      "ownerPID" : 82211,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 4215
+    },
+    {
+      "frame" : {
+        "height" : 849,
+        "width" : 816,
+        "x" : 481,
+        "y" : 150
+      },
+      "isOnScreen" : false,
+      "layer" : 3,
+      "ownerBundleID" : "com.apple.finder",
+      "ownerName" : "Finder",
+      "ownerPID" : 682,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 240
+    },
+    {
+      "frame" : {
+        "height" : 246,
+        "width" : 222,
+        "x" : 1245,
+        "y" : 152
+      },
+      "isOnScreen" : true,
+      "layer" : 101,
+      "ownerBundleID" : "io.github.sebas1337.stackbar",
+      "ownerName" : "Stackbar",
+      "ownerPID" : 8202,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 8966
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 46,
+        "x" : 1088,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "hash" : "afde39fbbd8f",
+        "length" : 6
+      },
+      "windowID" : 64
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 36,
+        "x" : 1287,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "KeyboardBrightness"
+      },
+      "windowID" : 5143
+    },
+    {
+      "frame" : {
+        "height" : 77,
+        "width" : 84,
+        "x" : 350,
+        "y" : 1042
+      },
+      "isOnScreen" : false,
+      "layer" : 3,
+      "ownerBundleID" : "com.apple.Safari",
+      "ownerName" : "Safari",
+      "ownerPID" : 82211,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 4197
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 33,
+        "x" : 1023,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "UserSwitcher"
+      },
+      "windowID" : 4787
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 35,
+        "x" : 1323,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "Item-0"
+      },
+      "windowID" : 4786
+    },
+    {
+      "frame" : {
+        "height" : 19,
+        "width" : 66,
+        "x" : 1278,
+        "y" : 863
+      },
+      "isOnScreen" : false,
+      "layer" : 103,
+      "ownerBundleID" : "com.apple.finder",
+      "ownerName" : "Finder",
+      "ownerPID" : 682,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 2758
+    },
+    {
+      "frame" : {
+        "height" : 360,
+        "width" : 687,
+        "x" : 1038,
+        "y" : 34
+      },
+      "isOnScreen" : false,
+      "layer" : 23,
+      "ownerBundleID" : "hash:18cfcff7a03a",
+      "ownerName" : "hash:37a299ea2fc1",
+      "ownerPID" : 65106,
+      "title" : {
+        "hash" : "14cc01cb65a1",
+        "length" : 14
+      },
+      "windowID" : 3327
+    },
+    {
+      "frame" : {
+        "height" : 152,
+        "width" : 352,
+        "x" : 1252,
+        "y" : 0
+      },
+      "isOnScreen" : false,
+      "layer" : 2005,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 587
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 42,
+        "x" : -4073,
+        "y" : 0
+      },
+      "isOnScreen" : false,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "hash" : "9600b72ea7c6",
+        "length" : 15
+      },
+      "windowID" : 92
+    },
+    {
+      "frame" : {
+        "height" : 319,
+        "width" : 420,
+        "x" : 49,
+        "y" : 798
+      },
+      "isOnScreen" : false,
+      "layer" : 3,
+      "ownerBundleID" : "hash:3685e32afc5f",
+      "ownerName" : "hash:3e311aaa6da8",
+      "ownerPID" : 1440,
+      "title" : {
+        "hash" : "2d02db0d8cfc",
+        "length" : 4
+      },
+      "windowID" : 91
+    },
+    {
+      "frame" : {
+        "height" : 319,
+        "width" : 420,
+        "x" : 49,
+        "y" : 798
+      },
+      "isOnScreen" : false,
+      "layer" : 3,
+      "ownerBundleID" : "hash:3685e32afc5f",
+      "ownerName" : "hash:3e311aaa6da8",
+      "ownerPID" : 1440,
+      "title" : {
+        "hash" : "2d02db0d8cfc",
+        "length" : 4
+      },
+      "windowID" : 90
+    },
+    {
+      "frame" : {
+        "height" : 319,
+        "width" : 420,
+        "x" : 49,
+        "y" : 798
+      },
+      "isOnScreen" : false,
+      "layer" : 3,
+      "ownerBundleID" : "hash:3685e32afc5f",
+      "ownerName" : "hash:3e311aaa6da8",
+      "ownerPID" : 1440,
+      "title" : {
+        "hash" : "2d02db0d8cfc",
+        "length" : 4
+      },
+      "windowID" : 89
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 45,
+        "x" : 1172,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "hash" : "afde39fbbd8f",
+        "length" : 6
+      },
+      "windowID" : 78
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 38,
+        "x" : 1443,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "hash" : "afde39fbbd8f",
+        "length" : 6
+      },
+      "windowID" : 1127
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 38,
+        "x" : 985,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "com.apple.menuextra.TimeMachine"
+      },
+      "windowID" : 31
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 38,
+        "x" : -4111,
+        "y" : 0
+      },
+      "isOnScreen" : false,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "com.apple.menuextra.vpn"
+      },
+      "windowID" : 29
+    },
+    {
+      "frame" : {
+        "height" : 64,
+        "width" : 64,
+        "x" : 1237,
+        "y" : 812
+      },
+      "isOnScreen" : false,
+      "layer" : 3,
+      "ownerBundleID" : "com.apple.finder",
+      "ownerName" : "Finder",
+      "ownerPID" : 682,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 28
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 34,
+        "x" : 1519,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "AirDrop"
+      },
+      "windowID" : 5142
+    },
+    {
+      "frame" : {
+        "height" : 1200,
+        "width" : 332,
+        "x" : 869,
+        "y" : 32
+      },
+      "isOnScreen" : false,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.weather.menu",
+      "ownerName" : "WeatherMenu",
+      "ownerPID" : 33399,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 5144
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 42,
+        "x" : 1553,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "BentoBox-0"
+      },
+      "windowID" : 20
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 38,
+        "x" : 1217,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "WiFi"
+      },
+      "windowID" : 19
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 38,
+        "x" : 1405,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "Sound"
+      },
+      "windowID" : 18
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 135,
+        "x" : 1595,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "Clock"
+      },
+      "windowID" : 17
+    },
+    {
+      "frame" : {
+        "height" : 33,
+        "width" : 32,
+        "x" : 1255,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 25,
+      "ownerBundleID" : "com.apple.controlcenter",
+      "ownerName" : "Control Center",
+      "ownerPID" : 680,
+      "title" : {
+        "text" : "Bluetooth"
+      },
+      "windowID" : 16
+    },
+    {
+      "frame" : {
+        "height" : 90,
+        "width" : 40,
+        "x" : 1672,
+        "y" : 58
+      },
+      "isOnScreen" : false,
+      "layer" : 3000,
+      "ownerBundleID" : "com.apple.AccessibilityVisualsAgent",
+      "ownerName" : "AccessibilityVisualsAgent",
+      "ownerPID" : 4275,
+      "title" : {
+        "hash" : "305ba57dc4c6",
+        "length" : 0
+      },
+      "windowID" : 8745
+    },
+    {
+      "frame" : {
+        "height" : 0,
+        "width" : 0,
+        "x" : 0,
+        "y" : 667
+      },
+      "isOnScreen" : false,
+      "layer" : 3,
+      "ownerBundleID" : "com.apple.AccessibilityUIServer",
+      "ownerName" : "Accessibility",
+      "ownerPID" : 686,
+      "title" : {
+        "hash" : "39444f705432",
+        "length" : 13
+      },
+      "windowID" : 11
+    },
+    {
+      "frame" : {
+        "height" : 1117,
+        "width" : 1728,
+        "x" : 0,
+        "y" : 0
+      },
+      "isOnScreen" : true,
+      "layer" : 20,
+      "ownerBundleID" : "com.apple.dock",
+      "ownerName" : "Dock",
+      "ownerPID" : 677,
+      "title" : {
+        "hash" : "7420baa487c9",
+        "length" : 4
+      },
+      "windowID" : 8
+    }
+  ]
+}

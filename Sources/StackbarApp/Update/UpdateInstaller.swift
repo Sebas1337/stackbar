@@ -134,11 +134,15 @@ enum UpdateInstaller {
     }
 
     /// Opens the new version once this process has exited. Doesn't quit when that can't be arranged.
+    /// LaunchServices notices the exit some milliseconds after the process is gone: an `open` right
+    /// away only activated the dying instance and nothing started (M5 update test, `open` 12 ms
+    /// after the exit, LaunchServices' QUITTING 24 ms later). So wait a moment, and `-n` starts a
+    /// new instance whatever LaunchServices still thinks.
     private static func relaunch(_ bundle: URL) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = [
-            "-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$0\"",
+            "-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /bin/sleep 1; /usr/bin/open -n \"$0\"",
             bundle.path, String(ProcessInfo.processInfo.processIdentifier),
         ]
         do {
