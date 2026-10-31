@@ -6,6 +6,10 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-31
+
+First stable release: everything from 0.6.1 plus the following (tested as 1.0.0-beta.1 to beta.4).
+
 ### Added
 - Settings → General: open Stackbar at login (also offered at the end of setup), a keyboard
   shortcut that opens the dropdown from anywhere, and collapsing the menu bar again

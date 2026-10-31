@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **M4 done (v0.6.0, 2026-10-30). Next: M5 (polish & release).**
+Status: **M5 done (v1.0.0, 2026-10-31). Next: 1.1 (wishes from the 1.0 test, M5 → Result).**
 
 ## Goal
 
@@ -302,6 +302,12 @@ only the clicked item appearing in the bar instead of every dropdown item.
 - Done when: the DMG from GitHub Releases opens on a clean Mac (without Gatekeeper warnings if
   Developer ID was chosen; with exactly the one documented "Open Anyway" step otherwise),
   permissions survive an update, and launch at login works.
+- **Result (2026-10-31)**: done, released as 1.0.0. Verified on the host: 1.0.0-beta.1 → beta.4
+  through the updater without permission prompts, relaunching by itself from beta.3 on; a fresh
+  administrator account installed from the DMG with one "Open Anyway", went through onboarding,
+  and everything worked (user, 2026-10-31). Open: Standard accounts (Risks). Wishes from that
+  test, for 1.1: a DMG window that shows where to drag the app, onboarding that doesn't start
+  over after the Screen Recording relaunch, and fewer screen-capture alerts.
 
 ## Risks / open questions
 
