@@ -6,8 +6,8 @@ struct AutoCollapseTests {
     static let start = Date(timeIntervalSinceReferenceDate: 1000)
 
     /// Ticks at `seconds` after `start` (`#expect` can't call mutating members).
-    static func tick(_ policy: inout AutoCollapse, _ seconds: Double, collapsed: Bool = false, idle: Double = 10, busy: Bool = false) -> Bool {
-        policy.tick(now: start.addingTimeInterval(seconds), isCollapsed: collapsed, idleSeconds: idle, isBusy: busy)
+    static func tick(_ policy: inout AutoCollapse, _ seconds: Double, collapsed: Bool = false, inUse: Bool = false, busy: Bool = false) -> Bool {
+        policy.tick(now: start.addingTimeInterval(seconds), isCollapsed: collapsed, isInUse: inUse, isBusy: busy)
     }
 
     @Test func collapsesOnceTheDelayHasPassed() {
@@ -38,12 +38,29 @@ struct AutoCollapseTests {
         #expect(!tooSoon && due)
     }
 
-    @Test func waitsForTheUserAndForStackbar() {
+    @Test func countsFromTheExpandItself() {
+        var policy = AutoCollapse(delaySeconds: AutoCollapse.menuDelaySeconds)
+        policy.expanded(at: Self.start.addingTimeInterval(1))
+        let early = Self.tick(&policy, 4)
+        let due = Self.tick(&policy, 6)
+        #expect(!early && due)
+    }
+
+    @Test func usingTheMenuBarStartsTheCountdownOver() {
+        var policy = AutoCollapse(delaySeconds: 5)
+        _ = Self.tick(&policy, 0)
+        let inUse = Self.tick(&policy, 4, inUse: true)
+        let tooSoon = Self.tick(&policy, 8)
+        let due = Self.tick(&policy, 10)
+        #expect(!inUse && !tooSoon && due)
+    }
+
+    @Test func waitsForStackbar() {
         var policy = AutoCollapse(delaySeconds: 10)
         _ = Self.tick(&policy, 0)
-        let active = Self.tick(&policy, 20, idle: 4)
-        let busy = Self.tick(&policy, 22, busy: true)
-        let idle = Self.tick(&policy, 24)
-        #expect(!active && !busy && idle)
+        let busy = Self.tick(&policy, 20, busy: true)
+        let tooSoon = Self.tick(&policy, 22)
+        let due = Self.tick(&policy, 30)
+        #expect(!busy && !tooSoon && due)
     }
 }

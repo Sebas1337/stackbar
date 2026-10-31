@@ -103,12 +103,6 @@ final class DropdownController {
         panel.orderOut(nil)
     }
 
-    /// Show All Items / Collapse Menu Bar from the icon's menu. Queued, so it doesn't change the
-    /// menu bar in the middle of a refresh or a forwarded click.
-    func toggleCollapsed() {
-        queue.enqueue { [weak self] in self?.menuBar.toggleCollapsed() }
-    }
-
     private func forward(_ item: MenuBarItem) {
         close()
         queue.enqueue { [weak self] in

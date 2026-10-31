@@ -50,9 +50,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.icon.onClick = openDropdown
         hotKeys.onPress = openDropdown
         menuBar.icon.onMenu = { [weak dropdown] in dropdown?.close() }
-        menuBar.icon.installCollapseItem(isCollapsed: { [weak menuBar] in menuBar?.isCollapsed ?? false }) { [weak dropdown] in
-            dropdown?.toggleCollapsed()
-        }
+        menuBar.icon.installCollapseItems(
+            isCollapsed: { [weak menuBar] in menuBar?.isCollapsed ?? false },
+            // Queued, so it doesn't change the menu bar in the middle of a refresh or a forwarded click.
+            toggle: { [weak queue, weak menuBar, weak watcher] in
+                queue?.enqueue {
+                    guard let menuBar else { return }
+                    menuBar.toggleCollapsed()
+                    if !menuBar.isCollapsed { watcher?.noteExpanded() }
+                }
+            },
+            isAutoCollapsing: { [weak general] in general?.autoCollapses ?? false },
+            toggleAutoCollapse: { [weak general] in general?.toggleAutoCollapse() }
+        )
         menuBar.icon.installSettingsItem { [weak settings] in settings?.show() }
         menuBar.icon.installUpdateItem { [weak updates] in updates?.check(userInitiated: true) }
         dropdown.onSettings = { [weak settings] in settings?.show() }

@@ -34,8 +34,8 @@ No account, no tracking, no subscription.
 - Dropdown with your hidden menu bar items, each with its icon and name
 - Drag items between **Menu Bar** and **Dropdown** in Settings; Stackbar moves them for you
 - Rescues icons hidden behind the MacBook notch
-- **Show All Items** puts everything back in the menu bar for a moment, and it can collapse
-  again by itself after 10 seconds to 5 minutes
+- **Show All Items** puts everything back in the menu bar for a moment; with **Auto Collapse** it
+  tucks them away again once you leave the menu bar alone for 5 seconds (or longer, in Settings)
 - A keyboard shortcut to open the dropdown from anywhere
 - Open at login
 - Automatic updates from GitHub, installed in place (permissions stay granted)
@@ -59,7 +59,7 @@ No account, no tracking, no subscription.
 ## How to use Stackbar
 
 - **Click** the Stackbar icon to open the dropdown. Click an item there to open its menu.
-- **Right-click** the icon for Show All Items / Collapse Menu Bar, Settings, macOS Menu Bar
+- **Right-click** the icon for Show All Items / Collapse Menu Bar, Auto Collapse, Settings, macOS Menu Bar
   Settings, Check for Updates and Quit.
 - **Choose what goes where** in Settings: drag items from the Menu Bar list into the Dropdown list
   (or back). Stackbar moves them in the menu bar for you; the cursor hides for a second while it

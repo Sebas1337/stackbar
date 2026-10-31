@@ -50,7 +50,7 @@ struct GeneralSettingsView: View {
                         Text(Self.describe(seconds)).tag(Int?.some(seconds))
                     }
                 }
-                Text("Once the menu bar has been expanded this long (Show All Items) and you haven't used mouse or keyboard for 5 seconds.")
+                Text("Once the menu bar has been expanded (Show All Items) and you haven't used it for this long. Auto Collapse in the icon's menu turns it on with 5 seconds.")
                     .font(.caption).foregroundStyle(.secondary)
             } header: {
                 Text("Auto-Collapse")

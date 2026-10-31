@@ -77,6 +77,13 @@ final class GeneralSettingsController {
         model.hotKeyRefused = !hotKeys.register(hotKey)
     }
 
+    var autoCollapses: Bool { store.config.autoCollapseSeconds != nil }
+
+    /// The icon menu's Auto Collapse item: on with 5 s, off (whatever delay Settings had chosen).
+    func toggleAutoCollapse() {
+        setAutoCollapse(autoCollapses ? nil : AutoCollapse.menuDelaySeconds)
+    }
+
     private func setAutoCollapse(_ seconds: Int?) {
         store.update { $0.autoCollapseSeconds = seconds }
         model.autoCollapseSeconds = seconds
