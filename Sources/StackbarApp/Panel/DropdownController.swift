@@ -103,7 +103,6 @@ final class DropdownController {
         panel.orderOut(nil)
     }
 
-
     private func forward(_ item: MenuBarItem) {
         close()
         queue.enqueue { [weak self] in

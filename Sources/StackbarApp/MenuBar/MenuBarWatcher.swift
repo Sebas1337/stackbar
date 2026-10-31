@@ -43,7 +43,10 @@ final class MenuBarWatcher {
         let busy = isBusy()
         let due = watch.tick(windows: windows, idleSeconds: idle, isBusy: busy)
         // Ticked every time, so it sees every collapse; a re-apply goes first.
-        let collapse = autoCollapse.tick(now: Date(), isCollapsed: isCollapsed(), isInUse: Self.isMenuBarInUse(windows), isBusy: busy)
+        let collapsed = isCollapsed()
+        // Only looked at when it can matter (the default is never).
+        let inUse = !collapsed && autoCollapse.delaySeconds != nil && Self.isMenuBarInUse(windows)
+        let collapse = autoCollapse.tick(now: Date(), isCollapsed: collapsed, isInUse: inUse, isBusy: busy)
         if due {
             onDue()
         } else if collapse {
@@ -56,13 +59,12 @@ final class MenuBarWatcher {
         autoCollapse.expanded(at: Date())
     }
 
-    /// The cursor in the active display's menu bar, or a menu or popover open under it.
+    /// The cursor in a menu bar, or a menu or popover open under the active display's.
     private static func isMenuBarInUse(_ windows: [WindowInfo]) -> Bool {
-        guard let screen = ScreenReader.screens().first(where: \.isMain) else { return false }
         let location = NSEvent.mouseLocation
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         let cursor = (x: Double(location.x), y: Double(primaryHeight - location.y))
-        return MenuBarActivity.isInUse(cursor: cursor, screen: screen, windows: windows)
+        return MenuBarActivity.isInUse(cursor: cursor, screens: ScreenReader.screens(), windows: windows)
     }
 
     /// Seconds since the last mouse or keyboard event (Stackbar's own synthesized ones count too).
