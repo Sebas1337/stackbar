@@ -38,6 +38,12 @@ final class StatusIconController: NSObject {
     var menuBarAppearance: NSAppearance? { statusItem.button?.effectiveAppearance }
 
     init(buildInfo: BuildInfo) {
+        // First launch: at the far right, next to Control Center and the clock, where a full bar
+        // still shows it. Without a spot a new item appears at the far left: on a full bar behind
+        // the notch, where it can't be clicked or ⌘-dragged out (`StatusItemPosition`).
+        if StatusItemPosition.position(of: StackbarItemsInfo.iconAutosaveName) == nil {
+            StatusItemPosition.set(0, for: StackbarItemsInfo.iconAutosaveName)
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.autosaveName = StackbarItemsInfo.iconAutosaveName
         menu = Self.makeMenu(buildInfo: buildInfo)
