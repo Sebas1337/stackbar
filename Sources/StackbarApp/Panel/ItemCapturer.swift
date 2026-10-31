@@ -34,6 +34,13 @@ final class ItemCapturer: ItemCapturing {
 
     var capturesClippedItems: Bool { Self.usesPrivateCapture && PrivateWindowCapture.isAvailable }
 
+    /// `CaptureNotice`, unless images from an earlier version are on disk (macOS asked then).
+    func explainCaptureOnce() {
+        CaptureNotice.explainOnce {
+            (try? FileManager.default.contentsOfDirectory(atPath: Self.folder.path))?.isEmpty == false
+        }
+    }
+
     func hasImage(of item: MenuBarItem) -> Bool {
         image(for: item) != nil
     }
@@ -81,9 +88,7 @@ final class ItemCapturer: ItemCapturing {
 
     private func captureWithScreenCaptureKit(_ items: [MenuBarItem]) async -> Set<UInt32> {
         guard !items.isEmpty else { return [] }
-        // Images on disk: macOS asked before (an earlier version), so no explanation now.
-        let capturedBefore = (try? FileManager.default.contentsOfDirectory(atPath: Self.folder.path))?.isEmpty == false
-        CaptureNotice.explainOnce(unlessCapturedBefore: capturedBefore)
+        explainCaptureOnce()
         let content: SCShareableContent
         do {
             content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)

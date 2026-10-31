@@ -16,23 +16,36 @@ enum PermissionState {
         )
     }
 
-    /// The first request shows macOS's prompt, which adds Stackbar to the Accessibility list and has
-    /// its own Open System Settings button; later requests open System Settings → Accessibility
-    /// directly. Not both at once: the prompt then covered the settings window (rc.1 test).
+    /// macOS's prompt was asked for in this launch.
+    private static var promptedAccessibility = false
+
+    /// macOS's Accessibility prompt, at most once per launch: it adds Stackbar to the Accessibility
+    /// list and has its own Open System Settings button. Onboarding asks for it when its
+    /// Accessibility page appears; its button then opens System Settings directly, so the two don't
+    /// show at once (rc.1 test, 2026-10-31). macOS may not show it again for an app it already
+    /// asked about; the button still works then.
+    static func promptAccessibility() {
+        guard !promptedAccessibility, !AXIsProcessTrusted() else { return }
+        promptedAccessibility = true
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+        logger.notice("promptAccessibility")
+    }
+
+    /// System Settings → Privacy & Security → Accessibility, without the prompt.
+    static func openAccessibilitySettings() {
+        openSettings("Privacy_Accessibility")
+    }
+
+    /// Grant buttons outside onboarding: the prompt the first time in a launch, System Settings after.
     static func requestAccessibility(alertIfGranted: Bool = true) {
-        let prompts = !UserDefaults.standard.bool(forKey: "AccessibilityPrompted")
-        let options = ["AXTrustedCheckOptionPrompt": prompts] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
-        logger.notice("requestAccessibility: trusted=\(trusted, privacy: .public), prompt=\(prompts, privacy: .public)")
+        let trusted = AXIsProcessTrusted()
+        logger.notice("requestAccessibility: trusted=\(trusted, privacy: .public)")
         guard !trusted else {
             if alertIfGranted { showAlreadyGranted("Accessibility") }
             return
         }
-        if prompts {
-            UserDefaults.standard.set(true, forKey: "AccessibilityPrompted")
-        } else {
-            openSettings("Privacy_Accessibility")
-        }
+        if promptedAccessibility { openAccessibilitySettings() } else { promptAccessibility() }
     }
 
     /// Shows the system prompt (once per app) and opens System Settings → Screen Recording.

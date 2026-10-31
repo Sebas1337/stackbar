@@ -76,7 +76,7 @@ jobs:
       - name: Package
         run: |
           # The script, not `make dmg`: that would rebuild the app for the runner's architecture only.
-          SIGN_IDENTITY="Stackbar Release" REQUIRE_IDENTITY=1 REQUIRE_LAYOUT=1 scripts/make-dmg.sh
+          REQUIRE_LAYOUT=1 scripts/make-dmg.sh
           ditto -c -k --keepParent build/Stackbar.app "dist/Stackbar-$VERSION.zip"
           cd dist
           for file in "Stackbar-$VERSION.dmg" "Stackbar-$VERSION.zip"; do

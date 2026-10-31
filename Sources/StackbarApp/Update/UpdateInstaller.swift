@@ -40,8 +40,15 @@ enum UpdateInstaller {
 
     /// Why this copy can't replace itself, nil when it can.
     static func blocker() -> String? {
-        guard Bundle.main.bundlePath.contains("/AppTranslocation/") else { return nil }
-        return "macOS runs this copy from a temporary location. Move Stackbar to Applications and open it from there."
+        let bundle = Bundle.main.bundleURL
+        if bundle.path.contains("/AppTranslocation/") {
+            return "macOS runs this copy from a temporary location. Move Stackbar to Applications and open it from there."
+        }
+        // A disk image or another read-only volume: not even an administrator can swap it.
+        if (try? bundle.resourceValues(forKeys: [.volumeIsReadOnlyKey]))?.volumeIsReadOnly == true {
+            return "Stackbar runs from a read-only disk. Move it to Applications and open it from there."
+        }
+        return nil
     }
 
     /// The swap removes the old bundle from its folder and replaces its contents. Not writable: the
@@ -133,7 +140,8 @@ enum UpdateInstaller {
     }
 
     /// Swaps the bundle with an administrator's password (macOS's own dialog, through `osascript`):
-    /// the old copy is moved aside first and put back when the new one can't be moved in. Paths go
+    /// the old copy is moved aside first (to a new name, so nothing that exists is removed) and put
+    /// back when the new one can't be moved in. Paths go
     /// in as arguments and through `quoted form of`, never into the script text.
     private static func replaceAsAdministrator(_ bundle: URL, with app: URL, version: SemanticVersion) async throws {
         let script = """
@@ -141,15 +149,16 @@ enum UpdateInstaller {
               set bundlePath to quoted form of item 1 of argv
               set asidePath to quoted form of item 2 of argv
               set newPath to quoted form of item 3 of argv
-              do shell script "/bin/rm -rf " & asidePath & " && /bin/mv " & bundlePath & " " & asidePath & " && { /bin/mv " & newPath & " " & bundlePath & " || { /bin/mv " & asidePath & " " & bundlePath & "; exit 1; }; } && /bin/rm -rf " & asidePath with prompt (item 4 of argv) with administrator privileges
+              do shell script "/bin/mv " & bundlePath & " " & asidePath & " && { /bin/mv " & newPath & " " & bundlePath & " || { /bin/mv " & asidePath & " " & bundlePath & "; exit 1; }; } && /bin/rm -rf " & asidePath with prompt (item 4 of argv) with administrator privileges
             end run
             """
         let prompt = "Stackbar \(version) replaces \(bundle.path), which belongs to another user on this Mac."
-        let arguments = ["-e", script, bundle.path, bundle.path + ".old", app.path, prompt]
+        let aside = bundle.deletingLastPathComponent().appendingPathComponent(".Stackbar-\(UUID().uuidString).app").path
+        let arguments = ["-e", script, bundle.path, aside, app.path, prompt]
         let (status, output) = try await Task.detached { try runCapturing("/usr/bin/osascript", arguments) }.value
         guard status == 0 else {
             // -128: the user clicked Cancel in the password dialog.
-            if output.contains("-128") { throw Failure.cancelled }
+            if output.contains("(-128)") { throw Failure.cancelled }
             throw Failure.administrator(output.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }

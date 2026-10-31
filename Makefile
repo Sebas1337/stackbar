@@ -29,7 +29,7 @@ app:
 
 # dist/Stackbar-<VERSION>.dmg from the app.
 dmg: app
-	SIGN_IDENTITY="$(SIGN_IDENTITY)" REQUIRE_IDENTITY="$(REQUIRE_IDENTITY)" scripts/make-dmg.sh
+	scripts/make-dmg.sh
 
 # Quit a running Stackbar first (force after 5 s) and wait for it to exit, so `open` launches the
 # new build instead of re-activating the old one.
