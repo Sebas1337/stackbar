@@ -6,6 +6,10 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Clicking Spotlight in the dropdown opens it at once with its keyboard shortcut (⌘Space, or
+  yours), without unfolding the menu bar first.
+
 ## [1.0.0] - 2026-10-31
 
 First stable release: everything since 0.6.1, tested as 1.0.0-beta.1 to beta.4 and

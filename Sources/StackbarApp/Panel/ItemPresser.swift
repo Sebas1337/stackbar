@@ -32,6 +32,34 @@ final class ItemPresser: ItemPressing {
         CGWarpMouseCursorPosition(savedCursor)
     }
 
+    /// Presses Spotlight's shortcut like the keyboard: modifier keys down, the key down and up,
+    /// modifiers up, each event carrying the modifiers held at that moment.
+    func press(_ shortcut: SpotlightShortcut) async {
+        guard AXIsProcessTrusted() else { return }
+        let source = CGEventSource(stateID: .hidSystemState)
+        let modifiers: [(HotKey.Modifiers, CGKeyCode, CGEventFlags)] = [
+            (.command, 55, .maskCommand), (.shift, 56, .maskShift),
+            (.option, 58, .maskAlternate), (.control, 59, .maskControl),
+        ].filter { shortcut.modifiers.contains($0.0) }
+        var flags: CGEventFlags = []
+        func post(_ key: CGKeyCode, down: Bool) {
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { return }
+            event.flags = flags
+            event.post(tap: .cghidEventTap)
+        }
+        for (_, key, flag) in modifiers {
+            flags.insert(flag)
+            post(key, down: true)
+        }
+        post(CGKeyCode(shortcut.keyCode), down: true)
+        try? await Task.sleep(for: .milliseconds(20))
+        post(CGKeyCode(shortcut.keyCode), down: false)
+        for (_, key, flag) in modifiers.reversed() {
+            flags.remove(flag)
+            post(key, down: false)
+        }
+    }
+
     /// The item's element in the app's extras menu bar, read again: its `index`th child when that
     /// still has the item's frame, otherwise the child with that frame (the app's items changed
     /// since the layout was read), otherwise the child with the same AX identifier (the frame is
