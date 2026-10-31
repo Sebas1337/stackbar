@@ -6,6 +6,13 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-31
+
+### Changed
+- No changes to the app itself. This release lets 1.1.1 test its reworked update for copies
+  installed from another account. The release workflow ignores stray whitespace in its signing
+  secrets.
+
 ## [1.1.1] - 2026-10-31
 
 ### Fixed
