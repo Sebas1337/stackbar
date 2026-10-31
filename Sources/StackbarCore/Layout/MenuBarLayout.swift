@@ -23,6 +23,13 @@ public struct MenuBarLayout: Sendable, Equatable {
     /// the notch even while collapsed), which are reachable nowhere else. Left to right.
     public var panelItems: [MenuBarItem] { items.filter { $0.section == .dropdown || $0.isClipped } }
 
+    /// False in a full-screen space or with an auto-hiding menu bar: every status window of the
+    /// active display is off-screen then. Not just Stackbar's icon: on a full bar that can sit
+    /// behind the notch itself.
+    public var isMenuBarShown: Bool { Self.isMenuBarShown([icon, divider].compactMap { $0 } + items.map(\.window)) }
+
+    static func isMenuBarShown(_ windows: [WindowInfo]) -> Bool { windows.isEmpty || windows.contains(where: \.isOnScreen) }
+
     /// Collapsing is safe only with the divider left of the icon: otherwise the icon, the only
     /// way to expand again, would be pushed off-screen too.
     public var canCollapse: Bool {
@@ -68,9 +75,8 @@ public struct MenuBarLayout: Sendable, Equatable {
             }
         }
 
-        // In a full-screen space (or with an auto-hiding menu bar) every status window is off-screen:
-        // nothing is clipped then. Stackbar's icon is always in the bar, so it tells.
-        let menuBarShown = icon?.isOnScreen ?? true
+        // Nothing is clipped while the menu bar isn't shown (`isMenuBarShown`).
+        let menuBarShown = Self.isMenuBarShown([icon, divider].compactMap { $0 } + joined.map(\.window))
         let items = joined.map { item in
             let window = item.window
             let isDropdown = divider.map { window.frame.midX < $0.frame.maxX } ?? false

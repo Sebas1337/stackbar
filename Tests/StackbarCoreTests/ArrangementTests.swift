@@ -353,6 +353,102 @@ struct ArrangementTests {
         #expect(bar.collapseCalls == [false, true, false, true])
     }
 
+    /// A full-screen space: every status window is off-screen, the icon too. Nothing can be moved,
+    /// so nothing runs, and nothing is remembered as out of reach for when the bar shows again.
+    @Test func nothingRunsWhileTheMenuBarIsHidden() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let config = try Self.config(bar, [Self.sound: .bar, Self.battery: .dropdown])
+        let shown = bar.collapsedSnapshot
+        for i in bar.collapsedSnapshot.windows.indices where bar.collapsedSnapshot.windows[i].layer == WindowInfo.statusWindowLayer {
+            bar.collapsedSnapshot.windows[i].isOnScreen = false
+        }
+        let arrangement = Arrangement(driver: bar, mover: bar)
+        var willMove = 0
+        arrangement.onWillMove = { willMove += 1 }
+        let hidden = try #require(bar.layout())
+        #expect(!hidden.isMenuBarShown)
+        #expect(!arrangement.needsRun(hidden, config: config))
+        let report = await arrangement.run(config: config, force: true)
+        #expect(report.outcome == .menuBarNotShown)
+        #expect(willMove == 0)
+        #expect(bar.moves.isEmpty && bar.collapseCalls.isEmpty)
+
+        bar.collapsedSnapshot = shown
+        #expect(arrangement.needsRun(try #require(bar.layout()), config: config))
+        #expect(await arrangement.run(config: config).moved.count == 2)
+    }
+
+    /// Wi-Fi never moves. A later run for another item (Battery) leaves it alone and keeps it
+    /// remembered, also when that run ends after the collapsed pass; a forced run tries it again.
+    @Test func aFailedItemIsLeftAloneByRunsForOtherItems() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        bar.failingMoves = [Self.wifi]
+        let arrangement = Arrangement(driver: bar, mover: bar)
+        let first = await arrangement.run(config: try Self.config(bar, [Self.wifi: .dropdown]))
+        #expect(first.failed == [Self.wifi])
+        let wifiDrags = bar.moves.filter { $0.0 == Self.wifi }.count
+        #expect(wifiDrags == 4) // two collapsed (S9), two expanded
+
+        let config = try Self.config(bar, [Self.wifi: .dropdown, Self.battery: .dropdown])
+        let second = await arrangement.run(config: config)
+        #expect(second.moved == [Self.battery])
+        #expect(bar.moves.filter { $0.0 == Self.wifi }.count == wifiDrags)
+        #expect(bar.collapseCalls == [false, true]) // only the first run expanded
+        let again = await arrangement.run(config: config)
+        #expect(again.outcome == .upToDate)
+
+        let forced = await arrangement.run(config: config, force: true)
+        #expect(forced.failed == [Self.wifi])
+        #expect(bar.moves.filter { $0.0 == Self.wifi }.count == wifiDrags * 2)
+    }
+
+    /// The failed item's app relaunches: a new window, so an automatic run tries it again.
+    @Test func aFailedItemIsRetriedWhenItsAppRelaunches() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        bar.failingMoves = [Self.wifi]
+        let config = try Self.config(bar, [Self.wifi: .dropdown])
+        let arrangement = Arrangement(driver: bar, mover: bar)
+        #expect(await arrangement.run(config: config).failed == [Self.wifi])
+        #expect(!arrangement.needsRun(try #require(bar.layout()), config: config))
+
+        let relaunched: UInt32 = 9_999
+        for i in bar.collapsedSnapshot.windows.indices where bar.collapsedSnapshot.windows[i].windowID == Self.wifi {
+            bar.collapsedSnapshot.windows[i].windowID = relaunched
+        }
+        #expect(arrangement.needsRun(try #require(bar.layout()), config: config))
+    }
+
+    /// On a full bar Stackbar's own icon can sit behind the notch (installs from before 1.1.1):
+    /// the menu bar is still shown, and items are still arranged.
+    @Test func theMenuBarIsShownWithTheIconBehindTheNotch() throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let iconID = try #require(bar.layout()?.icon?.windowID)
+        for i in bar.collapsedSnapshot.windows.indices where bar.collapsedSnapshot.windows[i].windowID == iconID {
+            bar.collapsedSnapshot.windows[i].isOnScreen = false
+        }
+        let layout = try #require(bar.layout())
+        #expect(layout.icon?.isOnScreen == false)
+        #expect(layout.isMenuBarShown)
+        let config = try Self.config(bar, [Self.battery: .dropdown])
+        #expect(Arrangement(driver: bar, mover: bar).needsRun(layout, config: config))
+    }
+
+    /// Weather, hidden next to the notch while collapsed (tight dump), can't be given room: the
+    /// collapsed pass's "no room" reaches the report, so Settings says so.
+    @Test func outOfRoomWhileCollapsedIsReported() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let tight = try FixtureTests.load("m4-mbp16-macos26-tight.json")
+        bar.collapsedSnapshot = tight
+        bar.expandedSnapshot = tight
+        let layout = try #require(bar.layout())
+        let weather = try #require(layout.items.first { $0.window.windowID == 5148 })
+        var config = StackbarConfig()
+        config.assign(try #require(weather.identity), to: .dropdown, name: "Weather")
+        let report = await Arrangement(driver: bar, mover: bar).run(config: config)
+        #expect(report.outOfRoom == [5148])
+        #expect(report.failed == [5148])
+    }
+
     @Test func immovableItemsNeverExpand() async throws {
         let bar = try FakeMenuBar(collapsed: true)
         let config = try Self.config(bar, [Self.clock: .dropdown])

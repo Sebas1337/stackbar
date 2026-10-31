@@ -20,6 +20,9 @@ public final class Arrangement {
             case noLayout
             /// The dropdown items didn't come back on-screen after expanding; collapsed again.
             case revealTimedOut
+            /// No status window is on-screen: a full-screen space or an auto-hiding menu bar.
+            /// Every item is out of reach then, so nothing was done (and nothing remembered).
+            case menuBarNotShown
         }
 
         public var outcome: Outcome
@@ -78,8 +81,12 @@ public final class Arrangement {
     private let mover: any ItemMoving
     /// Adjustable between runs (Debug → Slow Moves picks `Timing.slow`).
     public var timing: Timing
-    /// Identities found blocked by the last run.
+    /// Identities the last run's expanded layout showed out of reach (`ArrangementPlan.Blocker`).
     private var blocked: Set<ItemIdentity> = []
+    /// Items that failed to move or kept going back, with the window they did it in: not dragged
+    /// again, and no reason for a run, until a `force`d run, until they are no longer misplaced,
+    /// or until their app gets a new window (relaunched: the move may work now).
+    private var failed: [ItemIdentity: UInt32] = [:]
     private var isCancelled = false
 
     /// Runs once a run is about to change the menu bar (not for an up-to-date one): the app blocks
@@ -96,11 +103,12 @@ public final class Arrangement {
     /// before waiting for the user to be idle). Items into the dropdown that the expanded bar can't
     /// take (`dividerHidden`) wait for a collapsed run, unless `force`d (Settings then says why).
     public func needsRun(_ layout: MenuBarLayout, config: StackbarConfig, force: Bool = false) -> Bool {
-        !ArrangementPlan.misplaced(in: layout, config: config).filter { item in
+        guard layout.isMenuBarShown else { return false }
+        return !ArrangementPlan.misplaced(in: layout, config: config).filter { item in
             guard !item.isImmovable else { return false }
             if force { return true }
             return ArrangementPlan.blocker(of: item, in: layout) != .dividerHidden
-                && item.identity.map { !blocked.contains($0) } ?? false
+                && item.identity.map { !blocked.contains($0) && failed[$0] != item.window.windowID } ?? false
         }.isEmpty
     }
 
@@ -119,6 +127,11 @@ public final class Arrangement {
         let wasCollapsed = driver.isCollapsed
         var report = Report(outcome: .noLayout, isCollapsed: wasCollapsed)
         guard let start = driver.layout(), start.divider != nil else { return report }
+        guard start.isMenuBarShown else {
+            report.outcome = .menuBarNotShown
+            return report
+        }
+        if force { failed = [:] }
         guard needsRun(start, config: config, force: force) else {
             report.outcome = .upToDate
             return report
@@ -127,20 +140,24 @@ public final class Arrangement {
         onWillMove?()
         // Window ids stay the same while collapsing and expanding: the identities to remember.
         let identities = Dictionary(start.items.compactMap { item in item.identity.map { (item.window.windowID, $0) } }) { a, _ in a }
+        // Failed in an earlier run: left alone unless forced (another item triggered this run).
+        let skipping = Set(identities.filter { failed[$0.value] == $0.key }.keys)
         var state = RunState()
+        state.done = skipping
         /// Failed while collapsed: reported as failed unless the expanded pass moves them.
         var collapsedFailed: [UInt32] = []
 
         // Bar → dropdown first, while collapsed (S9): no flash, and it works with a full bar.
         if wasCollapsed {
             var collapsedReport = report
-            await moveIntoDropdownCollapsed(config: config, report: &collapsedReport)
+            await moveIntoDropdownCollapsed(config: config, skipping: skipping, report: &collapsedReport)
             // What moved is done; what failed here still gets the expanded pass's plain drag.
             report.moved = collapsedReport.moved
             report.roomMoves = collapsedReport.roomMoves
             report.steps = collapsedReport.steps
+            report.outOfRoom = collapsedReport.outOfRoom
             collapsedFailed = collapsedReport.failed
-            state.done = Set(collapsedReport.moved)
+            state.done = skipping.union(collapsedReport.moved)
             if isCancelled {
                 // Nothing is recorded as blocked: untried items weren't out of reach.
                 report.cancelled = true
@@ -149,10 +166,13 @@ public final class Arrangement {
                 return report
             }
             guard let now = driver.layout(), needsRun(now, config: config, force: force) else {
-                if let now = driver.layout() { recordBlocked(in: now, config: config, report: &report) }
-                report.outcome = .arranged
-                report.isCollapsed = driver.isCollapsed
-                return report
+                // Collapsed, every dropdown item looks off-screen: report what is out of reach, but
+                // keep remembering what the last expanded bar showed (`recordBlocked`).
+                if let now = driver.layout() { report.blocked = Self.blockers(in: now, config: config) }
+                return await finish(
+                    &report, outcome: .arranged, config: config, collapsedFailed: collapsedFailed, identities: identities,
+                    wasCollapsed: wasCollapsed
+                )
             }
         }
 
@@ -167,10 +187,10 @@ public final class Arrangement {
                 guard await driver.waitUntilRevealed(
                     dropdown, on: collapsed.screen, polls: timing.revealPolls, intervalMilliseconds: timing.pollIntervalMilliseconds
                 ) != nil else {
-                    if wasCollapsed { driver.setCollapsed(true) }
-                    report.outcome = .revealTimedOut
-                    report.isCollapsed = driver.isCollapsed
-                    return report
+                    return await finish(
+                        &report, outcome: .revealTimedOut, config: config, collapsedFailed: collapsedFailed, identities: identities,
+                        wasCollapsed: wasCollapsed
+                    )
                 }
             }
 
@@ -214,7 +234,7 @@ public final class Arrangement {
             // Back in the bar: into the dropdown again right here, collapsed (S9), without
             // expanding once more (with a full bar the expanded drop would miss anyway).
             if reverted.contains(where: { $0.section == .bar }) {
-                await moveIntoDropdownCollapsed(config: config, report: &report)
+                await moveIntoDropdownCollapsed(config: config, skipping: skipping, report: &report)
                 let now = driver.layout().map { ArrangementPlan.misplaced(in: $0, config: config) } ?? reverted
                 let ids = Set(reverted.map(\.window.windowID))
                 reverted = now.filter { ids.contains($0.window.windowID) }
@@ -229,27 +249,54 @@ public final class Arrangement {
             }
             again = Set(intoBar.map(\.window.windowID))
         }
+        return await finish(
+            &report, outcome: .arranged, config: config, collapsedFailed: collapsedFailed, reverted: reverted,
+            identities: identities, wasCollapsed: wasCollapsed
+        )
+    }
+
+    /// The end of every run that tried moves: restores the collapsed state and records what failed
+    /// (also while collapsed), so automatic re-applies leave it alone.
+    private func finish(
+        _ report: inout Report, outcome: Report.Outcome, config: StackbarConfig, collapsedFailed: [UInt32],
+        reverted: [MenuBarItem] = [], identities: [UInt32: ItemIdentity], wasCollapsed: Bool
+    ) async -> Report {
+        if wasCollapsed && !driver.isCollapsed {
+            driver.setCollapsed(true)
+            // The bar lays itself out again first (like the collapsed check in `run`).
+            await driver.sleep(milliseconds: timing.collapseSettleMilliseconds)
+        }
+        let now = driver.layout()
         // Failed while collapsed and not moved since (with a full bar the expanded pass can't take
         // them, `dividerHidden`): failed, so automatic re-applies don't expand for them again.
-        if !collapsedFailed.isEmpty, let now = driver.layout() {
+        if !collapsedFailed.isEmpty, let now {
             let misplaced = Set(ArrangementPlan.misplaced(in: now, config: config).map(\.window.windowID))
             for id in collapsedFailed where misplaced.contains(id) && !report.failed.contains(id) && !report.moved.contains(id) {
                 report.failed.append(id)
             }
         }
         // Items that keep going back or can't be moved aren't retried automatically either.
-        blocked.formUnion(reverted.compactMap(\.identity))
-        blocked.formUnion(report.failed.compactMap { identities[$0] })
-        if wasCollapsed && !driver.isCollapsed { driver.setCollapsed(true) }
-        report.outcome = .arranged
+        for item in reverted {
+            if let identity = item.identity { failed[identity] = item.window.windowID }
+        }
+        for id in report.failed {
+            if let identity = identities[id] { failed[identity] = id }
+        }
+        // Forgotten once they are where they belong.
+        if let now {
+            let misplaced = Set(ArrangementPlan.misplaced(in: now, config: config).compactMap(\.identity))
+            failed = failed.filter { misplaced.contains($0.key) }
+        }
+        report.outcome = outcome
         report.isCollapsed = driver.isCollapsed
         return report
     }
 
     /// Moves misplaced bar items into the dropdown while collapsed (S9), one at a time from a
     /// fresh layout, until none is left or the run is cancelled.
-    private func moveIntoDropdownCollapsed(config: StackbarConfig, report: inout Report) async {
+    private func moveIntoDropdownCollapsed(config: StackbarConfig, skipping: Set<UInt32>, report: inout Report) async {
         var state = RunState()
+        state.done = skipping
         while let layout = driver.layout(), !isCancelled,
               let move = ArrangementPlan.nextCollapsedMove(in: layout, config: config, skipping: state.done),
               let divider = layout.divider {
@@ -291,7 +338,7 @@ public final class Arrangement {
             }
             if state.roomFailures[id, default: 0] >= timing.attemptsPerItem || state.roomMoves[id, default: 0] >= timing.roomMovesPerItem {
                 report.failed.append(id)
-                report.outOfRoom.append(id)
+                if !report.outOfRoom.contains(id) { report.outOfRoom.append(id) }
                 state.done.insert(id)
             }
             return
@@ -320,13 +367,19 @@ public final class Arrangement {
 
     /// Misplaced items `layout` shows out of reach, for the report and for automatic re-applies.
     private func recordBlocked(in layout: MenuBarLayout, config: StackbarConfig, report: inout Report) {
-        let stillBlocked = ArrangementPlan.misplaced(in: layout, config: config).compactMap { item in
-            ArrangementPlan.blocker(of: item, in: layout).map { (item, $0) }
-        }
-        report.blocked = Dictionary(stillBlocked.map { ($0.0.window.windowID, $0.1) }) { first, _ in first }
+        report.blocked = Self.blockers(in: layout, config: config)
         // `dividerHidden` depends on the expanded bar, not on the item: a collapsed run moves it
         // (and `needsRun` skips it while expanded), so it isn't remembered.
-        blocked = Set(stillBlocked.filter { $0.1 != .dividerHidden }.compactMap(\.0.identity))
+        let ids = Set(report.blocked.filter { $0.value != .dividerHidden }.keys)
+        blocked = Set(layout.items.filter { ids.contains($0.window.windowID) }.compactMap(\.identity))
+    }
+
+    /// Misplaced items in `layout` that can't be moved, and why.
+    private static func blockers(in layout: MenuBarLayout, config: StackbarConfig) -> [UInt32: ArrangementPlan.Blocker] {
+        let stillBlocked = ArrangementPlan.misplaced(in: layout, config: config).compactMap { item in
+            ArrangementPlan.blocker(of: item, in: layout).map { (item.window.windowID, $0) }
+        }
+        return Dictionary(stillBlocked) { first, _ in first }
     }
 
     /// The item's window is on `section`'s side of the divider (the window's right edge stays

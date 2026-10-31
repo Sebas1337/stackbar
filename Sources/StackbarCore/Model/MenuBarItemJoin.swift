@@ -22,27 +22,27 @@ public enum MenuBarItemJoin {
     /// one (Control Center modules that aren't in the bar report 0 × 0) never match.
     ///
     /// An app's item reports its content frame; Control Center also reports elements that cover
-    /// a whole slot exactly (seen on top of a third-party item in the m1 dump). Content frames
-    /// win over such whole-slot frames.
+    /// a whole slot exactly, on top of a third-party item (window 64 in every fixture from m1 to
+    /// m5). Such whole-slot elements never match: when the app's own element is missing (its AX
+    /// read timed out), the item would otherwise count as Control Center's, with its title kept
+    /// unredacted, an Apple identity, and Control Center's element pressed for it.
     public static func join(windows: [WindowInfo], axItems: [AXItemInfo]) -> [JoinedMenuBarItem] {
         let statusWindows = windows
             .filter { $0.layer == WindowInfo.statusWindowLayer }
             .sorted { ($0.frame.minX, $0.windowID) < ($1.frame.minX, $1.windowID) }
 
-        var pairs: [(window: Int, axItem: Int, wholeSlot: Bool, distance: Double)] = []
+        var pairs: [(window: Int, axItem: Int, distance: Double)] = []
         for (w, window) in statusWindows.enumerated() {
             for (a, axItem) in axItems.enumerated() {
                 guard let frame = axItem.frame, frame.width > 0, frame.height > 0,
+                      frame.height < window.frame.height,
                       window.frame.contains(x: frame.midX, y: frame.midY)
                 else { continue }
                 let distance = abs(frame.midX - window.frame.midX) + abs(frame.midY - window.frame.midY)
-                pairs.append((w, a, frame.height >= window.frame.height, distance))
+                pairs.append((w, a, distance))
             }
         }
-        pairs.sort {
-            ($0.wholeSlot ? 1 : 0, $0.distance, $0.window, $0.axItem)
-                < ($1.wholeSlot ? 1 : 0, $1.distance, $1.window, $1.axItem)
-        }
+        pairs.sort { ($0.distance, $0.window, $0.axItem) < ($1.distance, $1.window, $1.axItem) }
 
         var matches: [Int: Int] = [:]
         var usedAXItems = Set<Int>()

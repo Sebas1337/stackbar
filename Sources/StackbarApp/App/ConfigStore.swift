@@ -21,7 +21,8 @@ final class ConfigStore {
         case .missing:
             logger.notice("no config yet")
         case .corrupt:
-            logger.error("config unreadable, using defaults")
+            let backup = ConfigFile.backupURL(for: Self.url, of: result)?.lastPathComponent ?? "?"
+            logger.error("config unreadable, backed up to \(backup, privacy: .public), using defaults")
         case .newerVersion(let version):
             logger.error("config version \(version, privacy: .public) is newer, backed up, using defaults")
         }
