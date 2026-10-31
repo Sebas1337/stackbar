@@ -9,6 +9,8 @@ import Foundation
 public struct ClickForwarding {
     public struct Report: Sendable, Equatable, CustomStringConvertible {
         public enum Outcome: String, Sendable {
+            /// Spotlight opened from its keyboard shortcut; the bar wasn't touched.
+            case openedDirectly
             /// A menu or popover opened and closed again.
             case closed
             /// Nothing of the app became visible after the press.
@@ -32,6 +34,8 @@ public struct ClickForwarding {
         /// followed: Spotlight's search field opens on AXPress and closes right away (no focus),
         /// a real click keeps it open (`m5-mbp16-macos26-spotlight.json`, window 291).
         public var retriedWithClick = false
+        /// Spotlight's shortcut was pressed first (`SpotlightShortcut`).
+        public var pressedShortcut = false
         /// The revealed item had no AX element, so the one from the panel's (collapsed) read was used.
         public var usedPanelAX = false
         /// The windows that opened: the item's menu or popover.
@@ -43,7 +47,7 @@ public struct ClickForwarding {
 
         public var description: String {
             "Click forwarding window \(windowID): \(outcome.rawValue), press \(press.map { "\($0)" } ?? "–"), "
-                + "clicked=\(clicked), retried=\(retriedWithClick), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), other \(otherOpened.map(String.init)), collapsed=\(isCollapsed)"
+                + "clicked=\(clicked), retried=\(retriedWithClick), shortcut=\(pressedShortcut), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), other \(otherOpened.map(String.init)), collapsed=\(isCollapsed)"
         }
     }
 
@@ -57,6 +61,8 @@ public struct ClickForwarding {
         public var closePolls = 300
         /// A menu gone again within this many close polls (0.6 s) was dismissed, not used.
         public var dismissedPolls = 3
+        /// How long Spotlight has to open after its shortcut before the usual route runs: 1 s.
+        public var shortcutPolls = 20
 
         public init() {}
     }
@@ -64,11 +70,17 @@ public struct ClickForwarding {
     private let driver: any MenuBarDriver
     private let presser: any ItemPressing
     private let timing: Timing
+    private let spotlightShortcut: SpotlightShortcut?
 
-    public init(driver: any MenuBarDriver, presser: any ItemPressing, timing: Timing = Timing()) {
+    /// `spotlightShortcut`: Spotlight's keyboard shortcut, nil when it is turned off.
+    public init(
+        driver: any MenuBarDriver, presser: any ItemPressing, timing: Timing = Timing(),
+        spotlightShortcut: SpotlightShortcut? = nil
+    ) {
         self.driver = driver
         self.presser = presser
         self.timing = timing
+        self.spotlightShortcut = spotlightShortcut
     }
 
     public func run(_ item: MenuBarItem) async -> Report {
@@ -80,6 +92,28 @@ public struct ClickForwarding {
             report.outcome = outcome
             report.isCollapsed = driver.isCollapsed
             return report
+        }
+
+        // Spotlight: its shortcut opens it at once, without expanding (it opens in the middle of the
+        // screen, not at the item). Only when it doesn't open does the usual route follow.
+        var beforeShortcut: [WindowInfo]?
+        if item.bundleID == SpotlightShortcut.bundleID, let shortcut = spotlightShortcut, let pid = item.ax?.pid {
+            let before = driver.visibleWindows()
+            if await presser.press(shortcut) {
+                report.pressedShortcut = true
+                beforeShortcut = before
+                for _ in 0..<timing.shortcutPolls {
+                    await driver.sleep(milliseconds: timing.pollIntervalMilliseconds)
+                    let opened = MenuWindows.opened(before: before, after: driver.visibleWindows(), pid: pid)
+                    if !opened.isEmpty {
+                        report.opened = opened.map(\.windowID)
+                        // Like a menu: the queue stays busy (no arranging, no refresh) until it closes.
+                        await waitUntilClosed(opened)
+                        report.outcome = .openedDirectly
+                        return report
+                    }
+                }
+            }
         }
 
         if wasCollapsed { driver.setCollapsed(false) }
@@ -99,6 +133,14 @@ public struct ClickForwarding {
             report.usedPanelAX = true
         }
         guard let pid = target.ax?.pid else { return finish(.itemNotFound) }
+        // Spotlight opened late from its shortcut: pressing the item now would close it again.
+        if let beforeShortcut {
+            let opened = MenuWindows.opened(before: beforeShortcut, after: driver.visibleWindows(), pid: pid)
+            if !opened.isEmpty {
+                report.opened = opened.map(\.windowID)
+                return finish(.openedDirectly)
+            }
+        }
 
         let before = driver.visibleWindows()
         let press = presser.press(target)
@@ -150,6 +192,14 @@ public struct ClickForwarding {
             case .dismissed: true
             case .closed, .timedOut: false
             }
+        }
+    }
+
+    /// Polls until `opened` closed, at most `closePolls`.
+    private func waitUntilClosed(_ opened: [WindowInfo]) async {
+        for _ in 0..<timing.closePolls {
+            await driver.sleep(milliseconds: timing.closeIntervalMilliseconds)
+            if !MenuWindows.isStillOpen(opened, in: driver.visibleWindows()) { return }
         }
     }
 

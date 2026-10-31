@@ -113,7 +113,13 @@ final class DropdownController {
         close()
         queue.enqueue { [weak self] in
             guard let self else { return }
-            let report = await ClickForwarding(driver: menuBar, presser: presser).run(item)
+            // Read at every Spotlight click: the user may have changed it in System Settings → Keyboard.
+            var shortcut: SpotlightShortcut?
+            if item.bundleID == SpotlightShortcut.bundleID {
+                let hotKeys = UserDefaults(suiteName: "com.apple.symbolichotkeys")?.dictionary(forKey: "AppleSymbolicHotKeys")
+                shortcut = SpotlightShortcut.from(symbolicHotKeys: hotKeys)
+            }
+            let report = await ClickForwarding(driver: menuBar, presser: presser, spotlightShortcut: shortcut).run(item)
             log(report.description)
         }
     }

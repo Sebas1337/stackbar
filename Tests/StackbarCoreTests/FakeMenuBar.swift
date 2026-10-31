@@ -23,6 +23,13 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     var menuReads = 0
     /// Reads of the menu after a synthesized click; nil: `menuReads`.
     var clickMenuReads: Int?
+    /// Spotlight's shortcut presses; whether one opens the menu.
+    var shortcuts: [SpotlightShortcut] = []
+    var shortcutOpens = true
+    /// Reads of the window the shortcut opens; nil: `menuReads`.
+    var shortcutMenuReads: Int?
+    /// False: no Accessibility, nothing posted.
+    var shortcutPosts = true
     private var remainingMenuReads = 0
 
     /// Every ⌘-drag: window id and drop point.
@@ -101,6 +108,12 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
         pressedAX.append(item.ax)
         if pressResult != .actionUnsupported { openMenu() }
         return pressResult
+    }
+
+    func press(_ shortcut: SpotlightShortcut) async -> Bool {
+        shortcuts.append(shortcut)
+        if shortcutOpens { openMenu(reads: shortcutMenuReads) }
+        return shortcutPosts
     }
 
     func click(at frame: Rect) async {
