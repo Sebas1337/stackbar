@@ -6,6 +6,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-31
+
 ### Added
 - Auto Collapse in the icon's menu: after Show All Items the menu bar collapses again once you
   haven't used it for 5 seconds.
