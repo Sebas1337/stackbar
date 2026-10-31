@@ -61,7 +61,7 @@ Created "$name" in $out
 SHA-256 fingerprint: $fingerprint
 
 1. Back up that folder now.
-2. GitHub → Sebas1337/stackbar → Settings → Secrets and variables → Actions → New repository secret:
+2. GitHub → Sebas1337/stackbar → Settings → Environments → release (tag rule v*) → Add environment secret:
      RELEASE_CERT_P12       run: base64 -i "$out/stackbar-release.p12" | pbcopy   then paste
-     RELEASE_CERT_PASSWORD  run: pbcopy < "$out/password.txt"                      then paste
+     RELEASE_CERT_PASSWORD  run: tr -d '\n' < "$out/password.txt" | pbcopy       then paste
 DONE

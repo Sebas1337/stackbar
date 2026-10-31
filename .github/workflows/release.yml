@@ -65,8 +65,11 @@ jobs:
           security create-keychain -p "$keychain_password" "$keychain"
           security set-keychain-settings -lut 3600 "$keychain"
           security unlock-keychain -p "$keychain_password" "$keychain"
-          printf '%s' "$RELEASE_CERT_P12" | base64 --decode > "$RUNNER_TEMP/release.p12"
-          security import "$RUNNER_TEMP/release.p12" -k "$keychain" -P "$RELEASE_CERT_PASSWORD" -T /usr/bin/codesign
+          # Pasted secrets can carry a trailing newline (`pbcopy < password.txt` did, 1.1.1 release):
+          # the import then fails with "MAC verification failed". Neither value contains whitespace.
+          password="$(printf '%s' "$RELEASE_CERT_PASSWORD" | tr -d '[:space:]')"
+          printf '%s' "$RELEASE_CERT_P12" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/release.p12"
+          security import "$RUNNER_TEMP/release.p12" -k "$keychain" -P "$password" -T /usr/bin/codesign
           rm -f "$RUNNER_TEMP/release.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
           security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
