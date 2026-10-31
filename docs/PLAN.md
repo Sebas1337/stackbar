@@ -1,6 +1,6 @@
 Items found blocked are not retried automatically, so a full bar doesn't flash on every app launch; items that failed to move or kept going back are also left alone by runs for other items, until the user assigns again in Settings (a forced run), they are in place, or their app relaunches (new window) (1.1.1). No run while the menu bar isn't shown (no status window of the active display on-screen: full-screen space, auto-hiding menu bar; outcome `menuBarNotShown`), since every item is out of reach then |# Stackbar — Plan
 
-Status: **1.1.0 released (2026-10-31): Auto Collapse in the icon’s menu. README screenshots added. Next: user feedback.**
+Status: **1.1.1 released (2026-10-31): fixes from a code review (updater swap, icon spot, arranging while the menu bar isn’t shown, config backup, redaction). Next: user feedback.**
 
 ## Goal
 

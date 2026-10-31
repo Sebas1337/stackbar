@@ -6,6 +6,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-31
+
 ### Fixed
 - On a full menu bar, a fresh install could put Stackbar's icon behind the notch, out of reach.
 - With an app in full screen (or an auto-hiding menu bar), launching an app no longer makes
@@ -17,6 +19,8 @@ All notable changes to Stackbar are documented here. The format follows
 ### Security
 - Updating a copy installed from another account (with an administrator's password) keeps
   that copy's owner and checks the new version's signature again just before swapping it in.
+  If macOS still refuses (seen with 1.0.1 → 1.1.0), the alert says to download the new version
+  instead of showing an `mv` error.
 - Diagnostics no longer contain user names from file paths, nor the names of third-party menu
   bar items whose app didn't answer in time.
 
