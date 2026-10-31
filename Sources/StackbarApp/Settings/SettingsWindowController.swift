@@ -148,7 +148,7 @@ final class SettingsWindowController {
             return "Stackbar couldn't read the menu bar."
         case .revealTimedOut:
             return "The dropdown items didn't come back into the menu bar; nothing was moved."
-        case .menuBarHidden:
+        case .menuBarNotShown:
             return "The menu bar isn't shown (an app in full screen?); nothing was moved. Try again once it is."
         }
     }

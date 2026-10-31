@@ -51,7 +51,10 @@ against the running app's designated requirement).
   deployment branches and tags: "Selected", tag rule `v*`; no reviewers, decided 2026-10-31):
   `RELEASE_CERT_P12` (the `.p12`, base64) and `RELEASE_CERT_PASSWORD`. Not as repository secrets:
   those can be read by a workflow changed on any branch, and whoever has this key can sign code
-  the updater accepts and that inherits users' permissions. `release.yml` runs in that environment,
+  the updater accepts and that inherits users' permissions. Limits: a `v*` tag pushed on a commit
+  whose workflow was changed still gets them (the main check is part of that workflow), so only
+  tag merge commits on `main`, and guard push access and tokens; a required reviewer on the
+  environment would close this, at the cost of approving every release. `release.yml` runs in that environment,
   refuses tags that aren't on `main`, imports the secrets into a temporary keychain, trusts the
   certificate for code signing and builds with `REQUIRE_IDENTITY=1`, so a release is never signed
   ad-hoc; it fails when the secrets are missing.

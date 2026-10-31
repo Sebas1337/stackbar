@@ -369,7 +369,7 @@ struct ArrangementTests {
         #expect(!hidden.isMenuBarShown)
         #expect(!arrangement.needsRun(hidden, config: config))
         let report = await arrangement.run(config: config, force: true)
-        #expect(report.outcome == .menuBarHidden)
+        #expect(report.outcome == .menuBarNotShown)
         #expect(willMove == 0)
         #expect(bar.moves.isEmpty && bar.collapseCalls.isEmpty)
 
@@ -400,6 +400,37 @@ struct ArrangementTests {
         let forced = await arrangement.run(config: config, force: true)
         #expect(forced.failed == [Self.wifi])
         #expect(bar.moves.filter { $0.0 == Self.wifi }.count == wifiDrags * 2)
+    }
+
+    /// The failed item's app relaunches: a new window, so an automatic run tries it again.
+    @Test func aFailedItemIsRetriedWhenItsAppRelaunches() async throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        bar.failingMoves = [Self.wifi]
+        let config = try Self.config(bar, [Self.wifi: .dropdown])
+        let arrangement = Arrangement(driver: bar, mover: bar)
+        #expect(await arrangement.run(config: config).failed == [Self.wifi])
+        #expect(!arrangement.needsRun(try #require(bar.layout()), config: config))
+
+        let relaunched: UInt32 = 9_999
+        for i in bar.collapsedSnapshot.windows.indices where bar.collapsedSnapshot.windows[i].windowID == Self.wifi {
+            bar.collapsedSnapshot.windows[i].windowID = relaunched
+        }
+        #expect(arrangement.needsRun(try #require(bar.layout()), config: config))
+    }
+
+    /// On a full bar Stackbar's own icon can sit behind the notch (installs from before 1.1.1):
+    /// the menu bar is still shown, and items are still arranged.
+    @Test func theMenuBarIsShownWithTheIconBehindTheNotch() throws {
+        let bar = try FakeMenuBar(collapsed: true)
+        let iconID = try #require(bar.layout()?.icon?.windowID)
+        for i in bar.collapsedSnapshot.windows.indices where bar.collapsedSnapshot.windows[i].windowID == iconID {
+            bar.collapsedSnapshot.windows[i].isOnScreen = false
+        }
+        let layout = try #require(bar.layout())
+        #expect(layout.icon?.isOnScreen == false)
+        #expect(layout.isMenuBarShown)
+        let config = try Self.config(bar, [Self.battery: .dropdown])
+        #expect(Arrangement(driver: bar, mover: bar).needsRun(layout, config: config))
     }
 
     /// Weather, hidden next to the notch while collapsed (tight dump), can't be given room: the

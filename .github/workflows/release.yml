@@ -17,7 +17,8 @@ jobs:
   release:
     runs-on: macos-26
     # The signing secrets live in this environment, which only v* tags may use (docs/RELEASING.md,
-    # Signing): a workflow changed on another branch can't read them.
+    # Signing): a workflow changed on a branch can't read them. A v* tag pushed on such a commit
+    # still could (the workflow comes from the tagged commit, so it can drop the main check too).
     environment: release
     steps:
       - uses: actions/checkout@v5
