@@ -111,7 +111,9 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    (`CursorHider`). Assignments live in `config.json` in Application Support (`StackbarConfig`).
 6. **Watch & re-apply**: the window list is polled (see Re-apply trigger, `MenuBarWatcher`).
    Items that match a persisted identity are moved to their assigned section via step 5;
-   unknown items stay where macOS puts them and show up in Settings.
+   unknown items stay where macOS puts them and show up in Settings. Settings lists only items
+   in the menu bar now (1.1.0, user wish 2026-10-31): assigned items that are gone (app quit,
+   turned off in System Settings → Menu Bar) are hidden there, and their assignment is kept.
 
 Required permissions: **Accessibility** (moving items, click forwarding) and **Screen
 Recording** (item images, window titles). Onboarding must explain and request them. Permissions

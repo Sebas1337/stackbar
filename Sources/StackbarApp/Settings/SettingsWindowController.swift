@@ -59,21 +59,10 @@ final class SettingsWindowController {
         let layout = menuBar.layout()
         let config = arranger.store.config
         let report = arranger.lastReport
-        var rows = layout.map { layout in layout.items.map { item in row(for: item, in: layout, config: config, report: report) } } ?? []
-        let present = Set((layout?.items ?? []).compactMap(\.identity))
-        for (index, assignment) in config.assignments.enumerated() where !present.contains(assignment.identity) {
-            rows.append(SettingsModel.Row(
-                id: "saved:\(index)",
-                item: nil,
-                appearance: nil,
-                name: assignment.name,
-                section: assignment.section,
-                caption: "Not in the menu bar (app not running)",
-                canMove: false,
-                canRetry: false
-            ))
-        }
-        model.rows = rows
+        // Only what is in the menu bar now. Assigned items that aren't (their app quit, or turned
+        // off in System Settings → Menu Bar) aren't listed (user wish 2026-10-31, 1.1.0); their
+        // assignment stays saved, so they go back to their side when they return.
+        model.rows = layout.map { layout in layout.items.map { item in row(for: item, in: layout, config: config, report: report) } } ?? []
         model.menuBarIsDark = menuBar.icon.menuBarAppearance?.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         model.notice = notice(layout: layout)
         model.status = status(report)
