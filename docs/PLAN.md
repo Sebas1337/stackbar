@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **1.1.0 released (2026-10-31): Auto Collapse in the icon’s menu. Next: README screenshots.**
+Status: **1.1.0 released (2026-10-31): Auto Collapse in the icon’s menu. README screenshots added. Next: user feedback.**
 
 ## Goal
 
