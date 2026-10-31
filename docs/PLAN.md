@@ -1,6 +1,6 @@
 # Stackbar — Plan
 
-Status: **M5 done: 1.0.0 released (2026-10-31). Next: 1.0.1 (Spotlight without expanding, README screenshots).**
+Status: **1.0.1 released (2026-10-31): Spotlight opens with its shortcut. Next: README screenshots.**
 
 ## Goal
 
