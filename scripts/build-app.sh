@@ -36,6 +36,10 @@ plist="$bundle/Contents/Info.plist"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 lipo -create "${binaries[@]}" -output "$bundle/Contents/MacOS/Stackbar"
 cp -X Resources/Info.plist "$plist"
+# App icon, drawn by scripts/app-icon.swift (no image files in git).
+swiftc -O -o "$stage/app-icon" scripts/app-icon.swift
+"$stage/app-icon" "$stage/AppIcon.iconset"
+iconutil -c icns -o "$bundle/Contents/Resources/AppIcon.icns" "$stage/AppIcon.iconset"
 plutil -replace CFBundleShortVersionString -string "$version" "$plist"
 plutil -replace CFBundleVersion -string "$build" "$plist"
 if [ "$(plutil -extract LSMinimumSystemVersion raw "$plist")" != "$min_macos" ]; then

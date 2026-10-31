@@ -45,5 +45,13 @@ jobs:
           plutil -lint build/Stackbar.app/Contents/Info.plist
           lipo build/Stackbar.app/Contents/MacOS/Stackbar -verify_arch arm64 x86_64
           codesign -dv build/Stackbar.app
+          test -s build/Stackbar.app/Contents/Resources/AppIcon.icns
       - name: DMG
-        run: scripts/make-dmg.sh
+        run: |
+          scripts/make-dmg.sh
+          # The Finder window layout (background with the arrow) must be in the image.
+          mnt="$(mktemp -d)"
+          hdiutil attach -quiet -nobrowse -readonly -mountpoint "$mnt" dist/Stackbar-*.dmg
+          ls -la "$mnt" "$mnt/.background"
+          test -f "$mnt/.DS_Store"
+          hdiutil detach -quiet "$mnt"

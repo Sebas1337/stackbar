@@ -32,11 +32,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let onboarding = OnboardingWindowController { [weak settings] in settings?.show() }
         let debug = DebugController(buildInfo: buildInfo, menuBar: menuBar)
 
+        // Setup was only waiting for the relaunch Screen Recording needs (welcome page passed, both
+        // permissions granted): finish it without its window and open Settings, its next step.
+        let finishesSetup = !store.config.onboardingCompleted
+            && OnboardingStep.first(welcomeDone: store.config.onboardingWelcomeDone, permissions: PermissionState.current) == nil
+        if finishesSetup { store.update { $0.onboardingCompleted = true } }
         // Until onboarding has finished, the icon opens it instead of the panel and collapsing is
         // refused (docs/PLAN.md, Decisions → First run).
         menuBar.isSetUp = store.config.onboardingCompleted
-        let openDropdown: () -> Void = { [weak menuBar, weak dropdown, weak onboarding] in
-            if menuBar?.isSetUp == true { dropdown?.toggle() } else { onboarding?.show() }
+        let openDropdown: () -> Void = { [weak menuBar, weak dropdown, weak onboarding, weak store] in
+            if menuBar?.isSetUp == true {
+                dropdown?.toggle()
+            } else {
+                onboarding?.show(welcomeDone: store?.config.onboardingWelcomeDone ?? false)
+            }
         }
         menuBar.icon.onClick = openDropdown
         hotKeys.onPress = openDropdown
@@ -66,18 +75,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menuBar?.isSetUp != true || arranger?.isRunning == true || queue?.isRunning == true || dropdown?.isOpen == true
         }
         updates.start()
-        onboarding.onFinish = { [weak menuBar, weak store, weak arranger, weak watcher, weak general] opensAtLogin in
-            store?.update { $0.onboardingCompleted = true }
+        onboarding.onWelcomeDone = { [weak store, weak general] opensAtLogin in
+            store?.update { $0.onboardingWelcomeDone = true }
             general?.setOpensAtLogin(opensAtLogin)
+        }
+        onboarding.onFinish = { [weak menuBar, weak store, weak arranger, weak watcher] in
+            store?.update { $0.onboardingCompleted = true }
             menuBar?.isSetUp = true
             arranger?.apply(force: false)
             watcher?.start()
         }
         debug.resetOnboarding = { [weak menuBar, weak store, weak onboarding] in
-            store?.update { $0.onboardingCompleted = false }
+            store?.update {
+                $0.onboardingCompleted = false
+                $0.onboardingWelcomeDone = false
+            }
             menuBar?.setCollapsed(false)
             menuBar?.isSetUp = false
-            onboarding?.show(opensAtLogin: LoginItem.isEnabled || LoginItem.needsApproval)
+            onboarding?.show(welcomeDone: false, opensAtLogin: LoginItem.isEnabled || LoginItem.needsApproval)
         }
         debug.runDeadZoneSpike = { [weak menuBar, weak store, weak queue, weak arranger] in
             guard let menuBar, let store else { return }
@@ -95,10 +110,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if store.config.isCollapsed {
                 queue.enqueue { [weak menuBar] in menuBar?.setCollapsed(true) }
             }
+            if finishesSetup {
+                queue.enqueue { [weak settings] in settings?.show() }
+            }
             arranger.apply(force: false)
             watcher.start()
         } else {
-            onboarding.show()
+            onboarding.show(welcomeDone: store.config.onboardingWelcomeDone)
         }
 
         self.menuBar = menuBar

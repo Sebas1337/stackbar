@@ -1,31 +1,34 @@
 import SwiftUI
 import StackbarCore
 
-/// What the onboarding window shows: the step and the live permission state.
+/// What the onboarding window shows: the page and the live permission state.
 @MainActor
 @Observable
 final class OnboardingModel {
-    enum Step: Int, CaseIterable {
-        case welcome, accessibility, screenRecording, done
-    }
-
-    var step = Step.welcome
+    var step = OnboardingStep.welcome
     var permissions = PermissionState.current
-    /// The last step's checkbox: register Stackbar as a login item when finishing.
+    /// The welcome page's checkbox: register Stackbar as a login item when leaving it.
     var opensAtLogin = true
     /// macOS runs this copy from a temporary location (App Translocation): it was opened where it
     /// was downloaded or copied without Finder. Updates can't install there.
     var isTranslocated = false
-    @ObservationIgnored var onOpenSettings: () -> Void = {}
+    @ObservationIgnored var onWelcomeDone: (_ opensAtLogin: Bool) -> Void = { _ in }
     @ObservationIgnored var onRelaunch: () -> Void = {}
-    @ObservationIgnored var onFinish: () -> Void = {}
+    @ObservationIgnored var onFinish: (_ openSettings: Bool) -> Void = { _ in }
 
+    /// The next page that still needs the user (granted permissions are skipped), or finish.
     func next() {
-        step = Step(rawValue: step.rawValue + 1) ?? .done
+        if step == .welcome { onWelcomeDone(opensAtLogin) }
+        if let next = OnboardingStep.next(after: step, permissions: permissions) {
+            step = next
+        } else {
+            onFinish(true)
+        }
     }
 }
 
-/// First run (docs/PLAN.md M4): what Stackbar does, the two permissions, how to assign items.
+/// First run (docs/PLAN.md, Decisions → First run): what Stackbar does and Open at Login, then
+/// Accessibility, then Screen Recording. Pages whose permission is granted are skipped.
 struct OnboardingView: View {
     @Bindable var model: OnboardingModel
 
@@ -47,6 +50,7 @@ struct OnboardingView: View {
                     )
                     .fixedSize(horizontal: false, vertical: true)
                 }
+                Toggle("Open Stackbar at login", isOn: $model.opensAtLogin)
                 footer { Button("Continue") { model.next() }.keyboardShortcut(.defaultAction) }
             case .accessibility:
                 page(
@@ -71,33 +75,25 @@ struct OnboardingView: View {
                     title: "Screen Recording",
                     text: "Lets Stackbar show images of the items in the dropdown and tell items of the same "
                         + "app apart. Stackbar only captures menu bar items. macOS may ask you to quit and "
-                        + "reopen Stackbar after turning it on, and asks again now and then whether "
-                        + "Stackbar may keep capturing."
+                        + "reopen Stackbar after turning it on; setup continues here afterwards. Once a month "
+                        + "macOS asks whether Stackbar may \u{201C}bypass the system private window picker\u{201D}: "
+                        + "allow it to keep the images up to date."
                 )
                 status(model.permissions.screenRecording)
+                if model.permissions.screenRecording {
+                    Text("All set. Open Settings and drag the items you want out of sight into the Dropdown "
+                        + "list. Click the Stackbar icon to open the dropdown; right-click it for Settings.")
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 footer {
-                    if !model.permissions.screenRecording {
+                    if model.permissions.screenRecording {
+                        Button("Done") { model.onFinish(false) }
+                        Button("Open Settings") { model.onFinish(true) }.keyboardShortcut(.defaultAction)
+                    } else {
                         Button("Relaunch Stackbar") { model.onRelaunch() }
                         Button("Open System Settings") { PermissionState.requestScreenRecording(alertIfGranted: false) }
+                            .keyboardShortcut(.defaultAction)
                     }
-                    Button("Continue") { model.next() }
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!model.permissions.screenRecording)
-                }
-            case .done:
-                page(
-                    symbol: "checkmark.circle",
-                    title: "All set",
-                    text: "Open Settings and drag the items you want out of sight into the Dropdown list. "
-                        + "Click the Stackbar icon to open the dropdown; right-click it for Settings."
-                )
-                Toggle("Open Stackbar at login", isOn: $model.opensAtLogin)
-                footer {
-                    Button("Open Settings") {
-                        model.onFinish()
-                        model.onOpenSettings()
-                    }
-                    Button("Done") { model.onFinish() }.keyboardShortcut(.defaultAction)
                 }
             }
         }
@@ -120,7 +116,7 @@ struct OnboardingView: View {
 
     private func footer(@ViewBuilder _ buttons: () -> some View) -> some View {
         HStack {
-            Text("Step \(model.step.rawValue + 1) of \(OnboardingModel.Step.allCases.count)")
+            Text("Step \(model.step.rawValue + 1) of \(OnboardingStep.allCases.count)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()

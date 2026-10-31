@@ -32,7 +32,7 @@ dropdown**.
 | Item identity | Decided by M1 (S6/S7): on macOS 26 every status item window is owned by Control Center, so the window's owner PID says nothing. The owning app comes from Accessibility: each app's `AXExtrasMenuBar` children, matched to windows by frame (`MenuBarItemJoin`: AX content-frame center inside the window). Identity = that bundle id + the window title (`kCGWindowName`, Screen Recording only), which on the active display is the item's autosave name (`Clock`, `WiFi`, `StackbarIcon`, or `Item-N` for apps that set none). Without a usable title: bundle id + ordinal among that app's items, left to right. Public API only; no private CoreGraphics/SkyLight calls needed |
 | Classification | Decided in M2 (`MenuBarLayout`): items are the active display's status windows (≤ 50 pt high) that are AX-joined or sit in its menu bar band; copies on other displays and status-level panels are left out. An item whose center is left of the divider's right edge is **dropdown**, the rest **bar** (no divider: all bar). Split by order, not the divider's width, so collapsed classifies the same way. **Clipped** = off-screen while on the display (center on it), wherever: overlapping the notch, left of it under the app menus (M4: window 93 in `m4-mbp16-macos26-arrange.json`), or just right of it when the bar is full (M4: Weather, the leftmost bar item, hidden at x = 961 while collapsed, `m4-mbp16-macos26-tight.json`). The dropdown panel lists clipped bar items too (`MenuBarLayout.panelItems`), under "Behind the notch: the menu bar is full", since they are reachable nowhere else. Independent of the section; items the collapsed divider pushed off the display aren't clipped, and nothing is clipped while Stackbar's icon is off-screen (full-screen space, auto-hiding menu bar). Without Accessibility, collapsed dropdown items can't be found and identities are unknown |
 | Re-apply trigger | Decided in M4 (`MenuBarWatch`): poll the status windows every 2 s (no Accessibility), and note `NSWorkspace` app launch/terminate and screen-parameter changes. A run is due once the status windows stayed the same for one more tick, the user hasn't used mouse or keyboard for 2 s (user decision 2026-10-29: moves take over the mouse) and neither the panel, Settings nor another sequence is busy. Items found blocked are not retried automatically, so a full bar doesn't flash on every app launch |
-| First run | Starts expanded with nothing assigned to the dropdown, on every launch. Until M4 collapsing is available right away (opening the panel collapses; Show All Items in the icon's menu expands, so the user can ⌘-drag items across the divider by hand). From M4 on, collapsing is enabled only after onboarding (permissions + how to assign items) has finished; until then the icon opens the onboarding. Afterwards every launch re-applies the layout and restores the collapsed state of the last quit |
+| First run | Starts expanded with nothing assigned to the dropdown, on every launch. Until M4 collapsing is available right away (opening the panel collapses; Show All Items in the icon's menu expands, so the user can ⌘-drag items across the divider by hand). From M4 on, collapsing is enabled only after onboarding (permissions + how to assign items) has finished; until then the icon opens the onboarding. Order (user, 2026-10-31, `OnboardingStep`): welcome with Open at Login, Accessibility, Screen Recording. Granted permissions are skipped, and onboarding resumes where it stopped (`onboardingWelcomeDone` in the config): after the relaunch Screen Recording needs, with both granted it finishes without its window and opens Settings; granting Accessibility moves on by itself. Afterwards every launch re-applies the layout and restores the collapsed state of the last quit |
 | Image refresh | Decided by S1: ScreenCaptureKit can't capture a window pushed off-screen by the divider ("Failed to start stream due to audio/video capture failure"); on-screen capture by window id works. So: reveal → capture → collapse on panel open, cached between opens. Decided in M3 (`DropdownRefresh`): the panel opens at once with the cached images (the app's icon for items never captured), then reveals, captures and collapses; (M3: images younger than 10 s were reused; replaced in M3b, below.) Dropdown items behind the notch (clipped even while expanded) can't be captured: they keep their last image or show the app's icon. M3b: those are captured with the private capture (see Private APIs) while revealed. Every capture reveals, i.e. flashes the bar; the **private** capture also shows macOS's "Screen Recording is in use" for a while (fixture `m3b-mbp16-macos26-capture.json`), ScreenCaptureKit screenshots don't (checked by the user with Debug → Use Private Capture off). So (user, 2026-10-29) images are captured **once** and kept on disk per item identity (Caches, file names hashed): a refresh only runs for dropdown items without an image, never after a click, and then captures on-screen items with ScreenCaptureKit and items behind the notch with the private capture only when they have no image yet. The panel's Update Images captures everything again |
 | Click forwarding | Decided by S2: expand → AXPress on the item's AX element → wait for its menu/popover to close → collapse. AXPress opens menus (NSMenu, Electron) and popovers like a real click; collapsed, the menu opens off-screen or clamped, so always expand first. Some apps return `kAXErrorCannotComplete` (-25204) while their menu still opens (ignore it); apps returning `kAXErrorActionUnsupported` (-25206) get a synthesized `CGEvent` click at the item's frame instead. Detect "opened" as a window of that app becoming visible (apps such as Stats reuse their panel window). Decided in M3 (`ClickForwarding`): "closed" = those windows left the window list or went off-screen, polled every 200 ms with a 60 s backstop; nothing opened within 1.5 s → collapse. No mouse-down monitor: a click outside closes menus and popovers, which the poll sees. AXPress uses the same 0.25 s AX messaging timeout as discovery. M3 captured the item again after its menu closed; M3b dropped that (images are captured once) |
 | Private APIs | Decided 2026-10-29 (user): two private APIs, both from SkyLight and loaded with `dlsym` (`SkyLight.swift`, no link dependency). **Capture**: SkyLight's `CGSHWCaptureWindowList`, loaded with `dlsym` (no link dependency), ScreenCaptureKit as fallback. S10 (M3b): it captures items behind the notch (on the display, just not shown), but not items the collapsed divider pushed off the display (no image). **Cursor** (M4): the connection property "SetsCursorInBackground" lets Stackbar hide the cursor during its ⌘-drags without becoming the active app (`CursorHider`); without it the drag stays visible. Ask before adding any other |
@@ -127,6 +127,7 @@ Sources/
     Model/           MenuBarItem, ItemIdentity, Section (bar | dropdown), geometry, DiagnosticsSnapshot
     Layout/          Notch-aware classification (bar / dropdown / clipped), diffing desired vs actual → ordered moves
     Persistence/     Codable config, migration, matching items across app relaunches
+    Setup/           Onboarding steps (which page to show, skipping granted permissions)
     Update/          Release feed (GitHub Releases), versions, check schedule
   StackbarApp/       macOS only. Thin adapters around system APIs; no business logic.
     App/             Entry point, lifecycle, LSUIElement agent app, --dump, debug window
@@ -139,7 +140,7 @@ Tests/
   StackbarCoreTests/
     Fixtures/        Real DiagnosticsSnapshot dumps from the user's Macs (never hand-edited)
 Resources/           Info.plist, entitlements, app icon
-scripts/             build-app.sh (bundle + sign), make-dmg.sh, make-dev-cert.sh, make-release-cert.sh, changelog-notes.sh
+scripts/             build-app.sh (bundle + sign), app-icon.swift (draws the icon), make-dmg.sh + dmg-background.swift (DMG window with an arrow), make-dev-cert.sh, make-release-cert.sh, changelog-notes.sh
 .github/workflows/   ci.yml (Linux test + macOS build on branch pushes; docs-only commits skip it), release.yml (tag → test, sign, DMG + zip, GitHub Release)
 ```
 
@@ -299,6 +300,10 @@ only the clicked item appearing in the bar instead of every dropdown item.
   ~0.8 s for a collapsed move (`m5-mbp16-macos26-fast.json`)
 - Release signing per the Distribution decision (Developer ID + notarization, or a stable
   self-signed certificate), DMG, GitHub Release workflow; update mechanism (TBD)
+- Install polish after the fresh-account test (user, 2026-10-31), before 1.0.0: app icon (drawn by
+  `scripts/app-icon.swift` at bundle time), DMG window with an arrow to Applications (Finder lays it
+  out with AppleScript in `make-dmg.sh`; CI checks the image has its `.DS_Store`), onboarding order
+  and resume (Decisions → First run). Shipped as 1.0.0-rc.1 first
 - Done when: the DMG from GitHub Releases opens on a clean Mac (without Gatekeeper warnings if
   Developer ID was chosen; with exactly the one documented "Open Anyway" step otherwise),
   permissions survive an update, and launch at login works.
@@ -320,9 +325,17 @@ only the clicked item appearing in the bar instead of every dropdown item.
 - **macOS menu bar changes**: macOS 26 adds its own menu bar item controls in System Settings and
   is the only OS Stackbar supports. Check every new major macOS before claiming support.
 - **Standard (non-admin) accounts**: in the M5 beta test Accessibility didn't take in a Standard account (Distribution). Check with `log stream --predicate 'process == "tccd"'` in such an account before claiming support for it.
-- **Screen-capture re-consent alerts**: macOS 15+ periodically asks the user to re-approve apps
-  that capture the screen without the system picker. Stackbar will trigger them; onboarding
-  explains it. Evaluate in M5 whether capturing less often reduces them.
+- **Screen-capture re-consent alerts**: macOS 15+ asks the user to re-approve apps that capture
+  the screen without the system picker: "Stackbar is requesting to bypass the system private window
+  picker and directly access your screen and audio" (Allow / Open System Settings), once after the
+  grant and then monthly. Seen in the 1.0 test on a fresh account (2026-10-31). It is not the private
+  capture: Apple DTS reproduced it with ScreenCaptureKit alone (`SCShareableContent` +
+  `SCScreenshotManager`, developer.apple.com/forums/thread/765103), which is what Stackbar uses for
+  on-screen items; the private capture shows the "Screen Recording is in use" indicator instead (M3b)
+  and already runs only for dropdown items behind the notch without an image. Avoidable only with the
+  system picker (useless here) or the persistent-content-capture entitlement (screen sharing apps
+  only). Images are captured once and kept, so it comes with the first capture and then monthly;
+  onboarding names it and says to allow it.
 - **Menu bar flash**: revealing items for capture, clicks and moves reflows the menu bar for a
   moment. Accepted; keep the window as short as possible.
 - **Item identity** across relaunches: decided (bundle id + title, fallback ordinal); apps with
