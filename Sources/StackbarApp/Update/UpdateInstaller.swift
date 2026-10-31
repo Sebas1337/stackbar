@@ -20,6 +20,8 @@ enum UpdateInstaller {
         case relaunch(String)
         case cancelled
         case administrator(String)
+        /// macOS itself refused (EPERM even for root): 1.0.1 → 1.1.0, copy from another account.
+        case notPermitted(String)
 
         var errorDescription: String? {
             switch self {
@@ -34,6 +36,9 @@ enum UpdateInstaller {
             case .relaunch(let reason): "Stackbar was updated but couldn't restart itself (\(reason)). Quit it and open it again."
             case .cancelled: "The update was cancelled."
             case .administrator(let reason): "Replacing Stackbar as administrator failed: \(reason)"
+            case .notPermitted(let path):
+                "macOS didn't let Stackbar replace \(path), which another account installed. Download this version and drag it "
+                    + "to Applications, or update from the account that installed Stackbar."
             }
         }
     }
@@ -199,6 +204,8 @@ enum UpdateInstaller {
         guard status == 0 else {
             // -128: the user clicked Cancel in the password dialog.
             if output.contains("(-128)") { throw Failure.cancelled }
+            // EPERM for root: a macOS policy (App Management), not file modes. The download page works.
+            if output.contains("Operation not permitted") { throw Failure.notPermitted(bundle.path) }
             throw Failure.administrator(output.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }
