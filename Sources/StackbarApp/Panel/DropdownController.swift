@@ -55,6 +55,8 @@ final class DropdownController {
     }
 
     func open() {
+        // Before the panel opens and anything is revealed: the alert takes the focus.
+        capturer.explainCaptureOnce()
         model.permissions = PermissionState.current
         model.hovered = nil
         panel.appearance = menuBar.icon.menuBarAppearance

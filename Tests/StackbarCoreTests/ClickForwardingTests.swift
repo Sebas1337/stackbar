@@ -65,6 +65,9 @@ struct ClickForwardingTests {
         let report = await forwarding.run(item)
         #expect(report.outcome == .nothingOpened)
         #expect(report.opened.isEmpty)
+        // A real click was tried too, and opened nothing either.
+        #expect(report.retriedWithClick)
+        #expect(bar.clicked.count == 1)
         #expect(report.isCollapsed)
     }
 
@@ -75,6 +78,47 @@ struct ClickForwardingTests {
         let report = await forwarding.run(item)
         #expect(report.outcome == .nothingOpened)
         #expect(report.otherOpened == [90_000])
+        // Another process opened something (maybe the item's menu): no second click to close it.
+        #expect(!report.retriedWithClick)
+        #expect(bar.clicked.isEmpty)
+    }
+
+    /// Spotlight (`m5-mbp16-macos26-spotlight.json`, window 291): AXPress opens its search field,
+    /// which closes again at once; a real click keeps it open.
+    @Test func menuDismissedAtOnceIsOpenedAgainWithAClick() async throws {
+        let (bar, forwarding, item) = try Self.setUp()
+        bar.menuReads = 2
+        bar.clickMenuReads = 10
+        let report = await forwarding.run(item)
+        #expect(report.outcome == .closed)
+        #expect(report.retriedWithClick)
+        #expect(report.clicked)
+        let revealed = try #require(bar.expandedSnapshot.windows.first { $0.windowID == Self.sound })
+        #expect(bar.clicked == [revealed.frame])
+        #expect(report.opened == [90_000])
+        #expect(report.isCollapsed)
+    }
+
+    /// The dump behind the retry: Spotlight's item is a dropdown item owned by Spotlight, and its
+    /// search field (window 278, off-screen again when dumped) belongs to that same process, so the
+    /// field was seen opening and closing (11:40:01), or not at all (11:39:56, 11:40:05).
+    @Test func spotlightFixture() throws {
+        let snapshot = try FixtureTests.load("m5-mbp16-macos26-spotlight.json")
+        let layout = try #require(MenuBarLayout.classify(snapshot))
+        let spotlight = try #require(layout.items.first { $0.window.windowID == 291 })
+        #expect(spotlight.bundleID == "com.apple.Spotlight")
+        #expect(spotlight.section == .dropdown)
+        let field = try #require(snapshot.windows.first { $0.windowID == 278 })
+        #expect(field.ownerPID == spotlight.ax?.pid)
+        #expect(snapshot.notes.filter { $0.contains("window 291: nothingOpened") }.count == 2)
+    }
+
+    @Test func menuUsedForAWhileIsNotClickedAgain() async throws {
+        let (bar, forwarding, item) = try Self.setUp()
+        let report = await forwarding.run(item)
+        #expect(report.outcome == .closed)
+        #expect(!report.retriedWithClick)
+        #expect(bar.clicked.isEmpty)
     }
 
     @Test func menuThatStaysOpenTimesOut() async throws {

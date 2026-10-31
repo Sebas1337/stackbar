@@ -21,6 +21,8 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
     /// Opened by a press or click: visible for this many `visibleWindows` reads.
     var menu: WindowInfo?
     var menuReads = 0
+    /// Reads of the menu after a synthesized click; nil: `menuReads`.
+    var clickMenuReads: Int?
     private var remainingMenuReads = 0
 
     /// Every ⌘-drag: window id and drop point.
@@ -103,7 +105,7 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
 
     func click(at frame: Rect) async {
         clicked.append(frame)
-        openMenu()
+        openMenu(reads: clickMenuReads)
     }
 
     /// Lands the window just past the drop point in the expanded snapshot, like a real drop next
@@ -200,8 +202,8 @@ final class FakeMenuBar: MenuBarDriver, ItemCapturing, ItemPressing, ItemMoving 
         collapsedSnapshot = collapsed
     }
 
-    private func openMenu() {
-        remainingMenuReads = menuReads
+    private func openMenu(reads: Int? = nil) {
+        remainingMenuReads = reads ?? menuReads
     }
 
     /// Left of or under the notch, on the display: where macOS hides items that don't fit.

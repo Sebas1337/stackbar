@@ -14,9 +14,13 @@ final class ItemPresser: ItemPressing {
     }
 
     /// Mouse down and up at the center of `frame` (global, top-left origin), then the cursor goes
-    /// back where it was.
+    /// back where it was. Hidden meanwhile (`CursorHider`), so it doesn't jump to the item.
     func click(at frame: Rect) async {
         guard AXIsProcessTrusted() else { return }
+        await CursorHider.hidden { await Self.post(at: frame) }
+    }
+
+    private static func post(at frame: Rect) async {
         let source = CGEventSource(stateID: .combinedSessionState)
         let savedCursor = CGEvent(source: nil)?.location ?? .zero
         let point = CGPoint(x: frame.midX, y: frame.midY)

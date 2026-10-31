@@ -61,12 +61,14 @@ struct OnboardingView: View {
                     title: "Accessibility",
                     text: "Lets Stackbar see which app owns each menu bar item, open their menus from the "
                         + "dropdown and move items for you. Turn Stackbar on in System Settings → "
-                        + "Privacy & Security → Accessibility."
+                        + "Privacy & Security → Accessibility; macOS's question and the button below both take you there."
                 )
+                // macOS's own question comes with the page; the button below goes to System Settings.
+                .onAppear { PermissionState.promptAccessibility() }
                 status(model.permissions.accessibility)
                 footer {
                     if !model.permissions.accessibility {
-                        Button("Open System Settings") { PermissionState.requestAccessibility(alertIfGranted: false) }
+                        Button("Open System Settings") { PermissionState.openAccessibilitySettings() }
                     }
                     Button("Continue") { model.next() }
                         .keyboardShortcut(.defaultAction)

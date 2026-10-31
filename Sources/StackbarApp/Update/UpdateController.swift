@@ -120,6 +120,8 @@ final class UpdateController {
         setStatus("Installing Stackbar \(update.version)…")
         do {
             try await UpdateInstaller.install(update)
+        } catch UpdateInstaller.Failure.cancelled {
+            setStatus("Stackbar \(update.version) is available.")
         } catch {
             logger.error("update failed: \(error.localizedDescription, privacy: .public)")
             SpikeLog.shared.add("Update to \(update.version) failed: \(error.localizedDescription)")

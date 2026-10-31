@@ -12,11 +12,13 @@ All notable changes to Stackbar are documented here. The format follows
   automatically after Show All Items.
 - Updates: Stackbar checks GitHub Releases once a day (or Check for Updates… in the icon's menu)
   and installs a new version in place when you agree, keeping its permissions.
-- Releases come as a DMG signed with a stable certificate: macOS asks to confirm the first launch
-  once ("Open Anyway"), not after every update.
+- Releases come as a DMG with Stackbar signed by a stable certificate: macOS asks to confirm the
+  first launch once ("Open Anyway"), not after every update.
+- When Stackbar in Applications belongs to another user on the Mac, updating asks for an
+  administrator's password instead of failing.
 - Setup warns when macOS runs Stackbar from a temporary copy (opened without moving it to
   Applications), where it can't update itself.
-- An app icon.
+- An app icon: the stack from the menu bar icon.
 - The DMG opens as a window with an arrow from Stackbar to Applications, to show where to drag it.
 - The icon's menu links to macOS Menu Bar Settings, where you choose which items macOS shows in
   the menu bar at all.
@@ -26,10 +28,15 @@ All notable changes to Stackbar are documented here. The format follows
 - Setup asks for Open at Login on its first page, then Accessibility, then Screen Recording, and
   skips permissions that are already granted. After the relaunch Screen Recording needs it no
   longer starts over: with everything granted it finishes by itself and opens Settings.
-- Setup explains macOS's monthly “bypass the system private window picker” question.
+- Setup explains macOS's monthly “bypass the system private window picker” question, and so does
+  Stackbar right before macOS asks it the first time.
+- Asking for Accessibility shows macOS's prompt or System Settings, no longer both at once.
 - The Debug submenu only shows when you open the icon's menu with ⌘ held (⌘-right-click).
 - With a full menu bar, moving items to the dropdown no longer spends seconds on drags that can't
   land.
+
+### Fixed
+- Clicking Spotlight in the dropdown opens Spotlight (its search field closed again at once).
 
 ## [1.0.0-rc.1] - 2026-10-31
 

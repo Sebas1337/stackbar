@@ -16,17 +16,36 @@ enum PermissionState {
         )
     }
 
-    /// Shows the system prompt and opens System Settings → Accessibility. macOS shows the prompt
-    /// only once per app, so the settings pane is what the user sees on every later request.
-    static func requestAccessibility(alertIfGranted: Bool = true) {
+    /// macOS's prompt was asked for in this launch.
+    private static var promptedAccessibility = false
+
+    /// macOS's Accessibility prompt, at most once per launch: it adds Stackbar to the Accessibility
+    /// list and has its own Open System Settings button. Onboarding asks for it when its
+    /// Accessibility page appears; its button then opens System Settings directly, so the two don't
+    /// show at once (rc.1 test, 2026-10-31). macOS may not show it again for an app it already
+    /// asked about; the button still works then.
+    static func promptAccessibility() {
+        guard !promptedAccessibility, !AXIsProcessTrusted() else { return }
+        promptedAccessibility = true
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
+        _ = AXIsProcessTrustedWithOptions(options)
+        logger.notice("promptAccessibility")
+    }
+
+    /// System Settings → Privacy & Security → Accessibility, without the prompt.
+    static func openAccessibilitySettings() {
+        openSettings("Privacy_Accessibility")
+    }
+
+    /// Grant buttons outside onboarding: the prompt the first time in a launch, System Settings after.
+    static func requestAccessibility(alertIfGranted: Bool = true) {
+        let trusted = AXIsProcessTrusted()
         logger.notice("requestAccessibility: trusted=\(trusted, privacy: .public)")
         guard !trusted else {
             if alertIfGranted { showAlreadyGranted("Accessibility") }
             return
         }
-        openSettings("Privacy_Accessibility")
+        if promptedAccessibility { openAccessibilitySettings() } else { promptAccessibility() }
     }
 
     /// Shows the system prompt (once per app) and opens System Settings → Screen Recording.
