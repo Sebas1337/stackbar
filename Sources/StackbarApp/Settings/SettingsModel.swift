@@ -7,9 +7,9 @@ import StackbarCore
 @Observable
 final class SettingsModel {
     struct Row: Identifiable {
-        /// The window id, or "saved:" + index for an assigned item that isn't in the menu bar.
+        /// The window id.
         var id: String
-        /// Nil for an assigned item that isn't in the menu bar (its app isn't running).
+        /// Always set: Settings lists only items in the menu bar.
         var item: MenuBarItem?
         var appearance: ItemAppearance?
         var name: String

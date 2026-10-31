@@ -6,6 +6,8 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-31
+
 ### Added
 - Auto Collapse in the icon's menu: after Show All Items the menu bar collapses again once you
   haven't used it for 5 seconds.
@@ -13,6 +15,9 @@ All notable changes to Stackbar are documented here. The format follows
 ### Changed
 - Auto-collapse waits until you leave the menu bar alone (cursor out of it, no menu open from it),
   no longer until you stop using mouse and keyboard anywhere. Settings → General also offers 5 seconds.
+- Settings only lists items that are in the menu bar: items you turned off in System Settings → Menu
+  Bar, or whose app isn't running, are no longer shown greyed out. When they come back, they go to
+  the side you chose.
 
 ## [1.0.1] - 2026-10-31
 
