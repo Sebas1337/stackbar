@@ -35,6 +35,9 @@ All notable changes to Stackbar are documented here. The format follows
 - With a full menu bar, moving items to the dropdown no longer spends seconds on drags that can't
   land.
 
+### Fixed
+- Clicking Spotlight in the dropdown opens Spotlight (its search field closed again at once).
+
 ## [1.0.0-rc.1] - 2026-10-31
 
 Release candidate for 1.0.0, with everything under Unreleased. New since beta.4: an app icon, a

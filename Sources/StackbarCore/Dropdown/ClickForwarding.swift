@@ -26,8 +26,12 @@ public struct ClickForwarding {
         public var outcome: Outcome
         public var windowID: UInt32
         public var press: PressResult?
-        /// A synthesized click was used (AXPress unsupported).
+        /// A synthesized click was used (AXPress unsupported, or the retry below).
         public var clicked = false
+        /// The press opened nothing, or what it opened was gone again at once, so a synthesized click
+        /// followed: Spotlight's search field opens on AXPress and closes right away (no focus),
+        /// a real click keeps it open (`m5-mbp16-macos26-spotlight.json`, window 291).
+        public var retriedWithClick = false
         /// The revealed item had no AX element, so the one from the panel's (collapsed) read was used.
         public var usedPanelAX = false
         /// The windows that opened: the item's menu or popover.
@@ -39,7 +43,7 @@ public struct ClickForwarding {
 
         public var description: String {
             "Click forwarding window \(windowID): \(outcome.rawValue), press \(press.map { "\($0)" } ?? "–"), "
-                + "clicked=\(clicked), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), other \(otherOpened.map(String.init)), collapsed=\(isCollapsed)"
+                + "clicked=\(clicked), retried=\(retriedWithClick), panelAX=\(usedPanelAX), opened \(opened.map(String.init)), other \(otherOpened.map(String.init)), collapsed=\(isCollapsed)"
         }
     }
 
@@ -51,6 +55,8 @@ public struct ClickForwarding {
         public var closeIntervalMilliseconds = 200
         /// Backstop for a menu that never seems to close: 60 s.
         public var closePolls = 300
+        /// A menu gone again within this many close polls (0.6 s) was dismissed, not used.
+        public var dismissedPolls = 3
 
         public init() {}
     }
@@ -107,27 +113,67 @@ public struct ClickForwarding {
             return finish(.pressFailed)
         }
 
+        var watched = await watch(before: before, pid: pid)
+        if !report.clicked, watched.wantsClick {
+            report.retriedWithClick = true
+            report.clicked = true
+            let beforeClick = driver.visibleWindows()
+            await presser.click(at: target.window.frame)
+            watched = await watch(before: beforeClick, pid: pid)
+        }
+        switch watched {
+        case .nothing(let other):
+            report.otherOpened = other
+            return finish(.nothingOpened)
+        case .dismissed(let opened), .closed(let opened):
+            report.opened = opened
+            return finish(.closed)
+        case .timedOut(let opened):
+            report.opened = opened
+            return finish(.timedOut)
+        }
+    }
+
+    private enum Watched {
+        /// Nothing of the app opened; the windows other processes showed meanwhile.
+        case nothing(other: [UInt32])
+        /// Opened and gone again within `dismissedPolls`.
+        case dismissed([UInt32])
+        case closed([UInt32])
+        case timedOut([UInt32])
+
+        /// Worth a real click: nothing opened anywhere, or it closed before the user could use it.
+        /// Not when another process opened something: that may be the item's menu (window 64, m3b).
+        var wantsClick: Bool {
+            switch self {
+            case .nothing(let other): other.isEmpty
+            case .dismissed: true
+            case .closed, .timedOut: false
+            }
+        }
+    }
+
+    /// Waits for the app's menu or popover to open, then for it to close.
+    private func watch(before: [WindowInfo], pid: Int32) async -> Watched {
         var opened: [WindowInfo] = []
         for _ in 0..<timing.openPolls {
             await driver.sleep(milliseconds: timing.pollIntervalMilliseconds)
             opened = MenuWindows.opened(before: before, after: driver.visibleWindows(), pid: pid)
             if !opened.isEmpty { break }
         }
-        report.opened = opened.map(\.windowID)
-
+        let ids = opened.map(\.windowID)
         guard !opened.isEmpty else {
             let beforeIDs = Set(before.map(\.windowID))
-            report.otherOpened = driver.visibleWindows()
+            return .nothing(other: driver.visibleWindows()
                 .filter { !beforeIDs.contains($0.windowID) && $0.ownerPID != pid && $0.layer != WindowInfo.statusWindowLayer }
-                .map(\.windowID)
-            return finish(.nothingOpened)
+                .map(\.windowID))
         }
-        for _ in 0..<timing.closePolls {
+        for poll in 0..<timing.closePolls {
             await driver.sleep(milliseconds: timing.closeIntervalMilliseconds)
             if !MenuWindows.isStillOpen(opened, in: driver.visibleWindows()) {
-                return finish(.closed)
+                return poll < timing.dismissedPolls ? .dismissed(ids) : .closed(ids)
             }
         }
-        return finish(.timedOut)
+        return .timedOut(ids)
     }
 }
