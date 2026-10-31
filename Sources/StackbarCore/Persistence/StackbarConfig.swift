@@ -28,7 +28,7 @@ public struct StackbarConfig: Codable, Sendable, Equatable {
     public var isCollapsed = false
     /// Opens and closes the panel from anywhere; nil: none.
     public var hotKey: HotKey?
-    /// Collapse again after being expanded this long; nil: never (`AutoCollapse`).
+    /// Collapse again after being expanded and unused this long; nil: never (`AutoCollapse`).
     public var autoCollapseSeconds: Int?
     public var checksForUpdates = true
     public var lastUpdateCheck: Date?

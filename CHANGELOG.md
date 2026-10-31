@@ -6,6 +6,14 @@ All notable changes to Stackbar are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Auto Collapse in the icon's menu: after Show All Items the menu bar collapses again once you
+  haven't used it for 5 seconds.
+
+### Changed
+- Auto-collapse waits until you leave the menu bar alone (cursor out of it, no menu open from it),
+  no longer until you stop using mouse and keyboard anywhere. Settings → General also offers 5 seconds.
+
 ## [1.0.1] - 2026-10-31
 
 ### Changed

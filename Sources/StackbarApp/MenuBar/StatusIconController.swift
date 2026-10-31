@@ -3,7 +3,7 @@ import StackbarCore
 
 /// Stackbar's **icon** status item. A left click runs `onClick` (opens or closes the dropdown
 /// panel); a right click or ⌃-click opens the menu with the version, Show All Items / Collapse,
-/// Settings, macOS Menu Bar Settings, Check for Updates and Quit; with ⌘ held also Debug.
+/// Auto Collapse, Settings, macOS Menu Bar Settings, Check for Updates and Quit; with ⌘ held also Debug.
 @MainActor
 final class StatusIconController: NSObject {
     private let statusItem: NSStatusItem
@@ -12,6 +12,8 @@ final class StatusIconController: NSObject {
     /// The Debug submenu and its separator: hidden unless the menu opens with ⌘ held.
     private var debugItems: [NSMenuItem] = []
     private var isCollapsed: () -> Bool = { false }
+    private var autoCollapseItem: NSMenuItem?
+    private var isAutoCollapsing: () -> Bool = { false }
 
     var onClick: (() -> Void)?
     /// Runs before the menu opens (closes the dropdown panel).
@@ -64,29 +66,39 @@ final class StatusIconController: NSObject {
     }
 
     /// Adds "Show All Items" (expand, e.g. to ⌘-drag items across the divider) or "Collapse"
-    /// below the version line.
-    func installCollapseItem(isCollapsed: @escaping () -> Bool, toggle: @escaping () -> Void) {
+    /// below the version line, and "Auto Collapse" below it (user wish 2026-10-31): checked while
+    /// the menu bar collapses again by itself (`AutoCollapse`).
+    func installCollapseItems(
+        isCollapsed: @escaping () -> Bool,
+        toggle: @escaping () -> Void,
+        isAutoCollapsing: @escaping () -> Bool,
+        toggleAutoCollapse: @escaping () -> Void
+    ) {
         self.isCollapsed = isCollapsed
+        self.isAutoCollapsing = isAutoCollapsing
         let item = NSMenuItem(title: "Show All Items", action: toggle)
+        let auto = NSMenuItem(title: "Auto Collapse", action: toggleAutoCollapse)
         menu.insertItem(item, at: 2)
-        menu.insertItem(.separator(), at: 3)
+        menu.insertItem(auto, at: 3)
+        menu.insertItem(.separator(), at: 4)
         collapseItem = item
+        autoCollapseItem = auto
     }
 
-    /// Adds "Settings…" (⌘,) and "macOS Menu Bar Settings…" below Show All Items. Call after
-    /// `installCollapseItem`.
+    /// Adds "Settings…" (⌘,) and "macOS Menu Bar Settings…" below Auto Collapse. Call after
+    /// `installCollapseItems`.
     func installSettingsItem(_ open: @escaping () -> Void) {
         let item = NSMenuItem(title: "Settings…", action: open)
         item.keyEquivalent = ","
-        menu.insertItem(item, at: 3)
+        menu.insertItem(item, at: 4)
         // Which items macOS shows at all is decided there, not by Stackbar.
         let system = NSMenuItem(title: "macOS Menu Bar Settings…", action: { SystemMenuBarSettings.open() })
-        menu.insertItem(system, at: 4)
+        menu.insertItem(system, at: 5)
     }
 
     /// Adds "Check for Updates…" below the two settings items. Call after `installSettingsItem`.
     func installUpdateItem(_ check: @escaping () -> Void) {
-        menu.insertItem(NSMenuItem(title: "Check for Updates…", action: check), at: 5)
+        menu.insertItem(NSMenuItem(title: "Check for Updates…", action: check), at: 6)
     }
 
     /// Adds the Debug submenu above Quit, shown only when the menu is opened with ⌘ held
@@ -114,6 +126,7 @@ final class StatusIconController: NSObject {
         onMenu?()
         for item in debugItems { item.isHidden = !withDebug }
         collapseItem?.title = isCollapsed() ? "Show All Items" : "Collapse Menu Bar"
+        autoCollapseItem?.state = isAutoCollapsing() ? .on : .off
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         statusItem.menu = nil
