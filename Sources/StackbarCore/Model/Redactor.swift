@@ -53,13 +53,20 @@ public struct Redactor: Sendable {
             .sorted { ($0.count, $0) > ($1.count, $1) }
     }
 
-    /// Notes are free text from the adapters (spike results); replace the identities in them.
+    /// Notes are free text from the adapters (spike results, error messages); replace the
+    /// identities in them, and the user name in home folder paths (`/Users/<name>/…` becomes
+    /// `/Users/~/…`; an update error can name the app's path).
     private func redactNote(identities: [String]) -> (String) -> String {
         { note in
-            identities.reduce(note) { text, identity in
+            let text = identities.reduce(note) { text, identity in
                 text.replacingOccurrences(of: identity, with: Self.hashedIdentityPrefix + hasher.hash(identity))
             }
+            return Self.redactHomePaths(text)
         }
+    }
+
+    static func redactHomePaths(_ text: String) -> String {
+        text.replacingOccurrences(of: #"/Users/[^/\s"',;:)]+"#, with: "/Users/~", options: .regularExpression)
     }
 
     public func redact(_ snapshot: DiagnosticsSnapshot) -> DiagnosticsSnapshot {

@@ -32,8 +32,8 @@ struct RedactorTests {
         let snapshot = SnapshotSamples.snapshot(
             windows: [appleWindow, otherWindow],
             axItems: [
-                SnapshotSamples.axItem(pid: 680, bundleID: "com.apple.controlcenter", frame: appleWindow.frame, title: "Clock"),
-                SnapshotSamples.axItem(pid: 9, bundleID: "com.example.app", frame: otherWindow.frame, title: "Secret"),
+                SnapshotSamples.axItem(pid: 680, bundleID: "com.apple.controlcenter", frame: Rect(x: 1503, y: 4.5, width: 32, height: 24), title: "Clock"),
+                SnapshotSamples.axItem(pid: 9, bundleID: "com.example.app", frame: Rect(x: 1003, y: 4.5, width: 32, height: 24), title: "Secret"),
             ]
         )
         let redacted = redactor.redact(snapshot)
@@ -82,6 +82,18 @@ struct RedactorTests {
         snapshot.notes = ["S2 AXPress com.example.vpn[0]: ok, opened com.apple.controlcenter"]
         let note = redactor.redact(snapshot).notes[0]
         #expect(note == "S2 AXPress hash:\(FakeHasher().hash("com.example.vpn"))[0]: ok, opened com.apple.controlcenter")
+    }
+
+    @Test func redactsUserNamesInPathsInNotes() {
+        var snapshot = SnapshotSamples.snapshot()
+        snapshot.notes = [
+            "Update to 1.1.1 failed: mv: /Users/jane.doe/Applications/Stackbar.app: Permission denied",
+            "home /Users/jane, shared /Users/Shared/x and /Users/~/y",
+        ]
+        #expect(redactor.redact(snapshot).notes == [
+            "Update to 1.1.1 failed: mv: /Users/~/Applications/Stackbar.app: Permission denied",
+            "home /Users/~, shared /Users/~/x and /Users/~/y",
+        ])
     }
 
     @Test func redactingTwiceChangesNothing() {

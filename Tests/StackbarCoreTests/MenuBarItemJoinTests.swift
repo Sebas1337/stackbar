@@ -72,4 +72,23 @@ struct MenuBarItemJoinTests {
         )
         #expect(joined[0].bundleID == "com.example.thirdparty")
     }
+
+    /// The third-party app's own element is missing (its AX read timed out): Control Center's
+    /// whole-slot element must not claim the item.
+    @Test func wholeSlotFrameAloneNeverMatches() {
+        let window = SnapshotSamples.statusWindow(1, x: 1083, width: 46)
+        let joined = MenuBarItemJoin.join(
+            windows: [window],
+            axItems: [SnapshotSamples.axItem(pid: 680, bundleID: "com.apple.controlcenter", frame: window.frame)]
+        )
+        #expect(joined[0].axItem == nil)
+    }
+
+    /// Window 64 in the fixtures: covered by Control Center's whole-slot element, owned by a
+    /// third-party app.
+    @Test func fixtureWholeSlotItemBelongsToItsApp() throws {
+        let snapshot = try FixtureTests.load("m5-mbp16-macos26-fast.json")
+        let item = try #require(MenuBarItemJoin.join(snapshot).first { $0.window.windowID == 64 })
+        #expect(item.bundleID?.hasPrefix(Redactor.hashedIdentityPrefix) == true)
+    }
 }
