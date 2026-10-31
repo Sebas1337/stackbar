@@ -39,8 +39,9 @@ public protocol ItemPressing: AnyObject {
     /// A synthesized click at the center of `frame`, cursor restored afterwards. Only for apps
     /// that don't support AXPress.
     func click(at frame: Rect) async
-    /// Presses a keyboard shortcut (Spotlight's, `SpotlightShortcut`).
-    func press(_ shortcut: SpotlightShortcut) async
+    /// Presses a keyboard shortcut (Spotlight's, `SpotlightShortcut`). False when nothing was posted
+    /// (no Accessibility).
+    func press(_ shortcut: SpotlightShortcut) async -> Bool
 }
 
 /// The outcome of AXPress (an `AXError` raw value).

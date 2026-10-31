@@ -14,23 +14,29 @@ struct SpotlightShortcutTests {
     @Test func neverChangedIsCommandSpace() {
         #expect(SpotlightShortcut.from(symbolicHotKeys: nil) == .standard)
         #expect(SpotlightShortcut.from(symbolicHotKeys: ["60": ["enabled": true]]) == .standard)
-        #expect(SpotlightShortcut.standard == SpotlightShortcut(keyCode: 49, modifiers: .command))
+        #expect(SpotlightShortcut.standard == SpotlightShortcut(keyCode: 49, modifierMask: 1 << 20))
+        // Enabled without a value: still macOS's default.
+        #expect(SpotlightShortcut.from(symbolicHotKeys: ["64": ["enabled": true]]) == .standard)
     }
 
     @Test func readsTheUsersShortcut() {
         // ⌥⇧Space
-        let shortcut = SpotlightShortcut.from(symbolicHotKeys: Self.hotKeys(mask: (1 << 19) | (1 << 17)))
-        #expect(shortcut == SpotlightShortcut(keyCode: 49, modifiers: [.option, .shift]))
-        // ⌃F1 (key code 122), enabled stored as a number
-        let f1 = SpotlightShortcut.from(symbolicHotKeys: Self.hotKeys(enabled: 1, keyCode: 122, mask: 1 << 18))
-        #expect(f1 == SpotlightShortcut(keyCode: 122, modifiers: .control))
+        let mask = SpotlightShortcut.Mask.option | SpotlightShortcut.Mask.shift
+        let shortcut = SpotlightShortcut.from(symbolicHotKeys: Self.hotKeys(mask: Int(mask)))
+        #expect(shortcut == SpotlightShortcut(keyCode: 49, modifierMask: mask))
+        // ⌃F1 (key code 122): F-keys carry fn, which the key events need too. Enabled as a number.
+        let f1Mask = SpotlightShortcut.Mask.control | SpotlightShortcut.Mask.function
+        let f1 = SpotlightShortcut.from(symbolicHotKeys: Self.hotKeys(enabled: 1, keyCode: 122, mask: Int(f1Mask)))
+        #expect(f1?.modifierMask == f1Mask)
+        // Bits macOS may set beyond the modifiers (caps lock, 1 << 16) are dropped.
+        let capsLock = SpotlightShortcut.from(symbolicHotKeys: Self.hotKeys(mask: (1 << 20) | (1 << 16)))
+        #expect(capsLock == .standard)
     }
 
     @Test func turnedOffOrWithoutKeyIsNil() {
         #expect(SpotlightShortcut.from(symbolicHotKeys: Self.hotKeys(enabled: false)) == nil)
         #expect(SpotlightShortcut.from(symbolicHotKeys: Self.hotKeys(enabled: 0)) == nil)
         #expect(SpotlightShortcut.from(symbolicHotKeys: Self.hotKeys(keyCode: 65535)) == nil)
-        #expect(SpotlightShortcut.from(symbolicHotKeys: ["64": ["enabled": true]]) == nil)
     }
 
     // MARK: Click forwarding
@@ -64,6 +70,40 @@ struct SpotlightShortcutTests {
         #expect(report.outcome == .closed)
         #expect(bar.pressed == [ClickForwardingTests.sound])
         #expect(bar.collapseCalls == [false, true])
+    }
+
+    /// Spotlight's field closes like a menu: the forwarding (and the queue) waits for it.
+    @Test func directOpenWaitsUntilSpotlightCloses() async throws {
+        let (bar, forwarding, item) = try Self.setUp()
+        bar.shortcutMenuReads = 6
+        let report = await forwarding.run(item)
+        #expect(report.outcome == .openedDirectly)
+        #expect(bar.sleeps >= 6)
+    }
+
+    /// Spotlight showed up only after the shortcut's second: found after expanding, not pressed.
+    @Test func lateSpotlightIsNotPressedShut() async throws {
+        let (bar, _, item) = try Self.setUp()
+        var timing = ClickForwarding.Timing()
+        timing.shortcutPolls = 0
+        bar.shortcutMenuReads = 50
+        let forwarding = ClickForwarding(driver: bar, presser: bar, timing: timing, spotlightShortcut: .standard)
+        let report = await forwarding.run(item)
+        #expect(report.outcome == .openedDirectly)
+        #expect(bar.pressed.isEmpty)
+        #expect(bar.clicked.isEmpty)
+        #expect(bar.collapseCalls == [false, true])
+    }
+
+    /// Without Accessibility nothing is posted: no second of waiting, straight to the usual route.
+    @Test func unpostedShortcutDoesntWait() async throws {
+        let (bar, forwarding, item) = try Self.setUp()
+        bar.shortcutPosts = false
+        bar.shortcutOpens = false
+        let report = await forwarding.run(item)
+        #expect(!report.pressedShortcut)
+        #expect(report.outcome == .closed)
+        #expect(bar.pressed == [ClickForwardingTests.sound])
     }
 
     @Test func shortcutTurnedOffTakesTheUsualRoute() async throws {

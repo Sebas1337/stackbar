@@ -96,17 +96,22 @@ public struct ClickForwarding {
 
         // Spotlight: its shortcut opens it at once, without expanding (it opens in the middle of the
         // screen, not at the item). Only when it doesn't open does the usual route follow.
+        var beforeShortcut: [WindowInfo]?
         if item.bundleID == SpotlightShortcut.bundleID, let shortcut = spotlightShortcut, let pid = item.ax?.pid {
-            report.pressedShortcut = true
             let before = driver.visibleWindows()
-            await presser.press(shortcut)
-            for _ in 0..<timing.shortcutPolls {
-                await driver.sleep(milliseconds: timing.pollIntervalMilliseconds)
-                let opened = MenuWindows.opened(before: before, after: driver.visibleWindows(), pid: pid)
-                if !opened.isEmpty {
-                    report.opened = opened.map(\.windowID)
-                    report.outcome = .openedDirectly
-                    return report
+            if await presser.press(shortcut) {
+                report.pressedShortcut = true
+                beforeShortcut = before
+                for _ in 0..<timing.shortcutPolls {
+                    await driver.sleep(milliseconds: timing.pollIntervalMilliseconds)
+                    let opened = MenuWindows.opened(before: before, after: driver.visibleWindows(), pid: pid)
+                    if !opened.isEmpty {
+                        report.opened = opened.map(\.windowID)
+                        // Like a menu: the queue stays busy (no arranging, no refresh) until it closes.
+                        await waitUntilClosed(opened)
+                        report.outcome = .openedDirectly
+                        return report
+                    }
                 }
             }
         }
@@ -128,6 +133,14 @@ public struct ClickForwarding {
             report.usedPanelAX = true
         }
         guard let pid = target.ax?.pid else { return finish(.itemNotFound) }
+        // Spotlight opened late from its shortcut: pressing the item now would close it again.
+        if let beforeShortcut {
+            let opened = MenuWindows.opened(before: beforeShortcut, after: driver.visibleWindows(), pid: pid)
+            if !opened.isEmpty {
+                report.opened = opened.map(\.windowID)
+                return finish(.openedDirectly)
+            }
+        }
 
         let before = driver.visibleWindows()
         let press = presser.press(target)
@@ -179,6 +192,14 @@ public struct ClickForwarding {
             case .dismissed: true
             case .closed, .timedOut: false
             }
+        }
+    }
+
+    /// Polls until `opened` closed, at most `closePolls`.
+    private func waitUntilClosed(_ opened: [WindowInfo]) async {
+        for _ in 0..<timing.closePolls {
+            await driver.sleep(milliseconds: timing.closeIntervalMilliseconds)
+            if !MenuWindows.isStillOpen(opened, in: driver.visibleWindows()) { return }
         }
     }
 

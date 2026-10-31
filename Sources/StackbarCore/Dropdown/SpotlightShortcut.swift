@@ -9,36 +9,44 @@ public struct SpotlightShortcut: Sendable, Equatable {
     /// "Show Spotlight search" in macOS's symbolic hot keys
     /// (`com.apple.symbolichotkeys` → `AppleSymbolicHotKeys`).
     public static let symbolicHotKeyID = "64"
+
+    /// Modifier bits, the same in `NSEvent.ModifierFlags` and `CGEventFlags`.
+    public enum Mask {
+        public static let shift: UInt64 = 1 << 17
+        public static let control: UInt64 = 1 << 18
+        public static let option: UInt64 = 1 << 19
+        public static let command: UInt64 = 1 << 20
+        public static let numericPad: UInt64 = 1 << 21
+        /// fn: set for F-keys and arrow keys.
+        public static let function: UInt64 = 1 << 23
+        static let all = shift | control | option | command | numericPad | function
+    }
+
     /// macOS's default when the user never changed it: ⌘Space.
-    public static let standard = SpotlightShortcut(keyCode: 49, modifiers: .command)
+    public static let standard = SpotlightShortcut(keyCode: 49, modifierMask: Mask.command)
 
     /// Virtual key code (layout independent).
     public var keyCode: UInt16
-    public var modifiers: HotKey.Modifiers
+    /// The modifiers (`Mask`) the key events carry; ⇧⌃⌥⌘ among them are also pressed as keys.
+    public var modifierMask: UInt64
 
-    public init(keyCode: UInt16, modifiers: HotKey.Modifiers) {
+    public init(keyCode: UInt16, modifierMask: UInt64) {
         self.keyCode = keyCode
-        self.modifiers = modifiers
+        self.modifierMask = modifierMask & Mask.all
     }
 
     /// The shortcut from the `AppleSymbolicHotKeys` dictionary: entry "64" is
-    /// `{ enabled, value: { parameters: (character, keyCode, modifierMask), type } }`, the mask in
-    /// `NSEvent.ModifierFlags` bits. No entry: the default ⌘Space. Nil when it is turned off or has
-    /// no key.
+    /// `{ enabled, value: { parameters: (character, keyCode, modifierMask), type } }`. No entry, or
+    /// an enabled one without a value: the default ⌘Space. Nil when it is turned off or has no key.
     public static func from(symbolicHotKeys: [String: Any]?) -> SpotlightShortcut? {
         guard let entry = symbolicHotKeys?[symbolicHotKeyID] as? [String: Any] else { return standard }
         if let enabled = integer(entry["enabled"]), enabled == 0 { return nil }
-        guard let value = entry["value"] as? [String: Any],
-              let parameters = value["parameters"] as? [Any], parameters.count >= 3,
+        guard let value = entry["value"] as? [String: Any] else { return standard }
+        guard let parameters = value["parameters"] as? [Any], parameters.count >= 3,
               let keyCode = integer(parameters[1]), let mask = integer(parameters[2]),
-              (0..<0xFFFF).contains(keyCode)
+              (0..<0xFFFF).contains(keyCode), mask >= 0
         else { return nil }
-        var modifiers: HotKey.Modifiers = []
-        if mask & (1 << 17) != 0 { modifiers.insert(.shift) }
-        if mask & (1 << 18) != 0 { modifiers.insert(.control) }
-        if mask & (1 << 19) != 0 { modifiers.insert(.option) }
-        if mask & (1 << 20) != 0 { modifiers.insert(.command) }
-        return SpotlightShortcut(keyCode: UInt16(keyCode), modifiers: modifiers)
+        return SpotlightShortcut(keyCode: UInt16(keyCode), modifierMask: UInt64(mask))
     }
 
     /// Property list numbers: `NSNumber` on macOS (also for booleans), plain values in tests.

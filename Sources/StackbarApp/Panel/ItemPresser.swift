@@ -33,31 +33,35 @@ final class ItemPresser: ItemPressing {
     }
 
     /// Presses Spotlight's shortcut like the keyboard: modifier keys down, the key down and up,
-    /// modifiers up, each event carrying the modifiers held at that moment.
-    func press(_ shortcut: SpotlightShortcut) async {
-        guard AXIsProcessTrusted() else { return }
+    /// modifiers up. Each event carries the modifiers held at that moment; the key itself also fn
+    /// and numeric-pad bits (F-keys, arrows). Marked as Stackbar's own, so `InputBlocker` lets
+    /// them through.
+    func press(_ shortcut: SpotlightShortcut) async -> Bool {
+        guard AXIsProcessTrusted() else { return false }
         let source = CGEventSource(stateID: .hidSystemState)
-        let modifiers: [(HotKey.Modifiers, CGKeyCode, CGEventFlags)] = [
-            (.command, 55, .maskCommand), (.shift, 56, .maskShift),
-            (.option, 58, .maskAlternate), (.control, 59, .maskControl),
-        ].filter { shortcut.modifiers.contains($0.0) }
-        var flags: CGEventFlags = []
-        func post(_ key: CGKeyCode, down: Bool) {
+        let modifierKeys: [(mask: UInt64, key: CGKeyCode)] = [
+            (SpotlightShortcut.Mask.command, 55), (SpotlightShortcut.Mask.shift, 56),
+            (SpotlightShortcut.Mask.option, 58), (SpotlightShortcut.Mask.control, 59),
+        ].filter { shortcut.modifierMask & $0.mask != 0 }
+        var held: UInt64 = 0
+        func post(_ key: CGKeyCode, down: Bool, flags: UInt64) {
             guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { return }
-            event.flags = flags
+            event.flags = CGEventFlags(rawValue: flags)
+            event.setIntegerValueField(.eventSourceUserData, value: InputBlocker.marker)
             event.post(tap: .cghidEventTap)
         }
-        for (_, key, flag) in modifiers {
-            flags.insert(flag)
-            post(key, down: true)
+        for modifier in modifierKeys {
+            held |= modifier.mask
+            post(modifier.key, down: true, flags: held)
         }
-        post(CGKeyCode(shortcut.keyCode), down: true)
+        post(CGKeyCode(shortcut.keyCode), down: true, flags: shortcut.modifierMask)
         try? await Task.sleep(for: .milliseconds(20))
-        post(CGKeyCode(shortcut.keyCode), down: false)
-        for (_, key, flag) in modifiers.reversed() {
-            flags.remove(flag)
-            post(key, down: false)
+        post(CGKeyCode(shortcut.keyCode), down: false, flags: shortcut.modifierMask)
+        for modifier in modifierKeys.reversed() {
+            held &= ~modifier.mask
+            post(modifier.key, down: false, flags: held)
         }
+        return true
     }
 
     /// The item's element in the app's extras menu bar, read again: its `index`th child when that
