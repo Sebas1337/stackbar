@@ -18,7 +18,10 @@ final class OnboardingModel {
 
     /// The next page that still needs the user (granted permissions are skipped), or finish.
     func next() {
-        if step == .welcome { onWelcomeDone(opensAtLogin) }
+        // A translocated copy is about to be moved (the welcome page says so): registering it as a
+        // login item would register the temporary copy. Not done: the welcome page shows again after
+        // the move unless setup finishes here (then Settings → General has Open at Login).
+        if step == .welcome, !isTranslocated { onWelcomeDone(opensAtLogin) }
         if let next = OnboardingStep.next(after: step, permissions: permissions) {
             step = next
         } else {

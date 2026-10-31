@@ -36,10 +36,19 @@ plist="$bundle/Contents/Info.plist"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 lipo -create "${binaries[@]}" -output "$bundle/Contents/MacOS/Stackbar"
 cp -X Resources/Info.plist "$plist"
-# App icon, drawn by scripts/app-icon.swift (no image files in git).
-swiftc -O -o "$stage/app-icon" scripts/app-icon.swift
-"$stage/app-icon" "$stage/AppIcon.iconset"
-iconutil -c icns -o "$bundle/Contents/Resources/AppIcon.icns" "$stage/AppIcon.iconset"
+# App icon, drawn by scripts/app-icon.swift (no image files in git); redrawn only when the script
+# changed, so `make run` stays quick.
+icon_cache="build/icon"
+icon_hash="$(shasum -a 256 scripts/app-icon.swift | cut -d' ' -f1)"
+if [ "$(cat "$icon_cache/source.sha256" 2>/dev/null)" != "$icon_hash" ] || [ ! -s "$icon_cache/AppIcon.icns" ]; then
+  rm -rf "$icon_cache"
+  mkdir -p "$icon_cache"
+  swiftc -O -o "$stage/app-icon" scripts/app-icon.swift
+  "$stage/app-icon" "$stage/AppIcon.iconset"
+  iconutil -c icns -o "$icon_cache/AppIcon.icns" "$stage/AppIcon.iconset"
+  echo "$icon_hash" > "$icon_cache/source.sha256"
+fi
+cp -X "$icon_cache/AppIcon.icns" "$bundle/Contents/Resources/AppIcon.icns"
 plutil -replace CFBundleShortVersionString -string "$version" "$plist"
 plutil -replace CFBundleVersion -string "$build" "$plist"
 if [ "$(plutil -extract LSMinimumSystemVersion raw "$plist")" != "$min_macos" ]; then

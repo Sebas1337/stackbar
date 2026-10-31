@@ -4,6 +4,8 @@
 # so it is clear where to drag it. Finder lays the window out (AppleScript) on a writable image,
 # which is then compressed. Signed with $SIGN_IDENTITY like the app when it is in the keychain.
 # Run `make app` first (`make dmg` does).
+#
+# REQUIRE_LAYOUT=1: fail instead of warning when Finder couldn't lay the window out (CI, release).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/signing.sh
@@ -57,7 +59,8 @@ tell application "Finder"
     set current view of container window to icon view
     set toolbar visible of container window to false
     set statusbar visible of container window to false
-    set the bounds of container window to {200, 120, 740, 500}
+    -- 380 pt of content (the background's height) plus the 28 pt title bar.
+    set the bounds of container window to {200, 120, 740, 528}
     set viewOptions to the icon view options of container window
     set arrangement of viewOptions to not arranged
     set icon size of viewOptions to 128
@@ -83,10 +86,16 @@ if layout || { sleep 3; layout; }; then
     [ -f "$mountpoint/.DS_Store" ] && break
     sleep 1
   done
-  [ -f "$mountpoint/.DS_Store" ] || echo "warning: Finder wrote no .DS_Store; the DMG has no window layout" >&2
-else
-  echo "warning: Finder layout failed; the DMG has no window layout" >&2
 fi
+if [ ! -f "$mountpoint/.DS_Store" ]; then
+  if [ "${REQUIRE_LAYOUT:-}" = 1 ]; then
+    echo "error: Finder couldn't lay out the DMG window" >&2
+    exit 1
+  fi
+  echo "warning: Finder couldn't lay out the DMG window; it shows the plain file list" >&2
+fi
+# Mounting adds macOS's bookkeeping folders; they don't belong in the image.
+rm -rf "$mountpoint/.fseventsd" "$mountpoint/.Trashes" 2>/dev/null || true
 
 sync
 hdiutil detach -quiet "$mountpoint" || hdiutil detach -quiet -force "$mountpoint"

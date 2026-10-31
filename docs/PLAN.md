@@ -80,7 +80,7 @@ bar. Stackbar makes them disappear from view and shows a stand-in in its own pan
    off-screen; expanded restores the normal length and everything shows in the bar. Verified by S8: the
    icon stays visible, the divider itself goes off-screen too (its image is centered in the long
    button), so the icon is the collapse toggle. A left click on the icon opens the dropdown panel (which
-   collapses); right click / ⌃-click opens its menu with Show All Items / Collapse Menu Bar. The
+   collapses); right click / ⌃-click opens its menu with Show All Items / Collapse Menu Bar, Settings…, macOS Menu Bar Settings… (System Settings → Menu Bar, where macOS decides which items show at all; user wish 2026-10-31), Check for Updates… and Quit. The Debug submenu only shows with ⌘ held (⌘-right-click, user wish 2026-10-31). The
    icon is filled while collapsed. Stackbar always
    launches expanded, and refuses to collapse (with an alert from the icon's menu, a note in the panel otherwise) unless the divider is left of the
    icon, because the icon would otherwise go off-screen with no way back.
@@ -303,7 +303,8 @@ only the clicked item appearing in the bar instead of every dropdown item.
 - Install polish after the fresh-account test (user, 2026-10-31), before 1.0.0: app icon (drawn by
   `scripts/app-icon.swift` at bundle time), DMG window with an arrow to Applications (Finder lays it
   out with AppleScript in `make-dmg.sh`; CI checks the image has its `.DS_Store`), onboarding order
-  and resume (Decisions → First run). Shipped as 1.0.0-rc.1 first
+  and resume (Decisions → First run). Also: macOS Menu Bar Settings… in the icon's menu, Debug only on
+  ⌘-right-click (How it works, step 2). Shipped as 1.0.0-rc.1 first
 - Done when: the DMG from GitHub Releases opens on a clean Mac (without Gatekeeper warnings if
   Developer ID was chosen; with exactly the one documented "Open Anyway" step otherwise),
   permissions survive an update, and launch at login works.
