@@ -14,6 +14,8 @@ All notable changes to Stackbar are documented here. The format follows
   and installs a new version in place when you agree, keeping its permissions.
 - Releases come as a DMG signed with a stable certificate: macOS asks to confirm the first launch
   once ("Open Anyway"), not after every update.
+- Setup warns when macOS runs Stackbar from a temporary copy (opened without moving it to
+  Applications), where it can't update itself.
 
 ### Changed
 - Moving items is about twice as fast.

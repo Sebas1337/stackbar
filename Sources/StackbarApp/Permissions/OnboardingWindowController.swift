@@ -42,6 +42,7 @@ final class OnboardingWindowController {
         model.step = .welcome
         if let opensAtLogin { model.opensAtLogin = opensAtLogin }
         model.permissions = PermissionState.current
+        model.isTranslocated = Bundle.main.bundlePath.contains("/AppTranslocation/")
         if timer == nil {
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.model.permissions = PermissionState.current }

@@ -13,6 +13,9 @@ final class OnboardingModel {
     var permissions = PermissionState.current
     /// The last step's checkbox: register Stackbar as a login item when finishing.
     var opensAtLogin = true
+    /// macOS runs this copy from a temporary location (App Translocation): it was opened where it
+    /// was downloaded or copied without Finder. Updates can't install there.
+    var isTranslocated = false
     @ObservationIgnored var onOpenSettings: () -> Void = {}
     @ObservationIgnored var onRelaunch: () -> Void = {}
     @ObservationIgnored var onFinish: () -> Void = {}
@@ -36,6 +39,14 @@ struct OnboardingView: View {
                     text: "Stackbar keeps the menu bar items you rarely use in a dropdown under its icon, "
                         + "and gets back the ones lost behind the notch. It needs two permissions first."
                 )
+                if model.isTranslocated {
+                    Label(
+                        "macOS runs this copy of Stackbar from a temporary location, so it can't update itself. "
+                            + "Quit it, drag Stackbar into Applications in Finder and open it from there.",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
+                }
                 footer { Button("Continue") { model.next() }.keyboardShortcut(.defaultAction) }
             case .accessibility:
                 page(
