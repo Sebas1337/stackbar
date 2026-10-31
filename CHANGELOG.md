@@ -22,6 +22,11 @@ All notable changes to Stackbar are documented here. The format follows
 - With a full menu bar, moving items to the dropdown no longer spends seconds on drags that can't
   land.
 
+## [1.0.0-beta.3] - 2026-10-31
+
+Third pre-release. Fixed: after installing an update, Stackbar starts the new version again
+(from beta.3 on; updating to beta.3 itself still needs reopening Stackbar by hand).
+
 ## [1.0.0-beta.2] - 2026-10-30
 
 Second pre-release, the same as 1.0.0-beta.1: the version 1.0.0-beta.1 updates to, to test the
