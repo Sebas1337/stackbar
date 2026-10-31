@@ -8,7 +8,7 @@ No account, no tracking, no subscription.
 ![macOS 26 Tahoe](https://img.shields.io/badge/macOS-26%20Tahoe-blue)
 [![MIT license](https://img.shields.io/github/license/Sebas1337/stackbar)](LICENSE)
 
-<!-- screenshot: ![Stackbar's dropdown under its menu bar icon, listing the menu bar items moved out of the bar](docs/images/dropdown.png) -->
+<p align="center"><img src="docs/images/dropdown.png" width="560" alt="Stackbar's dropdown under its menu bar icon, listing the menu bar items moved out of the bar: Docker Desktop, Battery, VPN, Spotlight, Bluetooth, Wi-Fi and more"></p>
 
 ## Why Stackbar
 
@@ -23,11 +23,13 @@ No account, no tracking, no subscription.
 - **Free and private.** Open source under the MIT license. Stackbar doesn't collect anything; the
   only thing it contacts is GitHub, to check for updates.
 
-<!-- screenshot:
-| Before | After |
-|---|---|
-| ![A crowded MacBook menu bar](docs/images/bar-before.png) | ![The same menu bar tidied by Stackbar](docs/images/bar-after.png) |
--->
+**Before:** a crowded MacBook menu bar.
+
+<img src="docs/images/bar-before.png" width="856" alt="A crowded MacBook menu bar with more than a dozen status icons">
+
+**After:** the same menu bar with Stackbar. The rest is one click away in its dropdown.
+
+<img src="docs/images/bar-after.png" width="618" alt="The same menu bar tidied by Stackbar: its icon and a few items next to the clock">
 
 ## Features
 
@@ -41,7 +43,7 @@ No account, no tracking, no subscription.
 - Automatic updates from GitHub, installed in place (permissions stay granted)
 - Works on Apple silicon and Intel Macs with macOS 26 Tahoe
 
-<!-- screenshot: ![Stackbar Settings: drag items between the Menu Bar and Dropdown lists](docs/images/settings.png) -->
+<p align="center"><img src="docs/images/settings.png" width="600" alt="Stackbar Settings: drag items between the Menu Bar and Dropdown lists"></p>
 
 ## Install
 
@@ -54,7 +56,7 @@ No account, no tracking, no subscription.
    once: updates installed by Stackbar itself open normally.
 3. Setup walks you through the rest: open at login, then the two permissions Stackbar needs.
 
-<!-- screenshot: ![Stackbar's setup asking for the Accessibility permission](docs/images/setup.png) -->
+<p align="center"><img src="docs/images/setup.png" width="470" alt="Stackbar's setup: welcome page with Open Stackbar at login"></p>
 
 ## How to use Stackbar
 
